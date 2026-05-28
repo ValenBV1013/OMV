@@ -21,6 +21,7 @@ from .serializers import (
     RutaSeguraInputSerializer,
     ZonaRiesgoSerializer,
 )
+from .services.geocode import geocode_direccion
 from .services.routing import get_safe_route
 from .services.weather import fetch_current_weather
 
@@ -94,10 +95,19 @@ class RutaViewSet(viewsets.ViewSet):
     def segura(self, request):
         """
         POST /api/v1/rutas/segura/
-        Body: {"origen": {"lat": 6.2442, "lng": -75.5812},
-               "destino": {"lat": 6.2500, "lng": -75.5900},
-               "modo_lluvias": true,
-               "id_cliente": null}
+        Acepta coordenadas o direcciones:
+
+        Con coordenadas:
+          {"origen": {"lat": 6.2442, "lng": -75.5812},
+           "destino": {"lat": 6.2500, "lng": -75.5900},
+           "modo_lluvias": true,
+           "id_cliente": null}
+
+        Con direcciones (geocodificación automática vía Nominatim/OSM):
+          {"origen": "Cra 80 # 30-15, Medellín",
+           "destino": "Cl 10 # 41-20, Medellín",
+           "modo_lluvias": true,
+           "id_cliente": null}
         """
         serializer = RutaSeguraInputSerializer(data=request.data)
         if not serializer.is_valid():
@@ -105,10 +115,24 @@ class RutaViewSet(viewsets.ViewSet):
 
         data = serializer.validated_data
 
+        # Resolver direcciones a coordenadas si es necesario
+        origen = _resolver_coordenadas(data["origen"], "origen")
+        if origen is None:
+            return Response(
+                {"error": f"No se pudo geocodificar la dirección de origen"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        destino = _resolver_coordenadas(data["destino"], "destino")
+        if destino is None:
+            return Response(
+                {"error": f"No se pudo geocodificar la dirección de destino"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             resultado = get_safe_route(
-                origen=data["origen"],
-                destino=data["destino"],
+                origen=origen,
+                destino=destino,
                 modo_lluvias=data.get("modo_lluvias", True),
                 id_cliente=data.get("id_cliente"),
                 save_history=True,
@@ -189,6 +213,38 @@ class GeoViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({
             "total_zonas": ZonaRiesgo.objects.count(),
             "por_tipo": conteo,
+        })
+
+    @action(detail=False, methods=["post"])
+    def geocodificar(self, request):
+        """
+        POST /api/v1/geo/geocodificar/
+        Convierte una dirección a coordenadas usando Nominatim (OSM).
+
+        Body: {"direccion": "Cra 80 # 30-15, Medellín, Antioquia"}
+
+        Respuesta:
+          {"direccion": "...", "lat": 6.2442, "lng": -75.5812}
+          o {"error": "..."} con 400 si no se encuentra.
+        """
+        direccion = request.data.get("direccion", "")
+        if not direccion or not direccion.strip():
+            return Response(
+                {"error": "El campo 'direccion' es requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        coords = geocode_direccion(direccion)
+        if coords is None:
+            return Response(
+                {"error": f"No se pudo geocodificar: '{direccion}'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({
+            "direccion": direccion.strip(),
+            "lat": coords["lat"],
+            "lng": coords["lng"],
         })
 
 
@@ -273,6 +329,23 @@ class EstadisticaViewSet(viewsets.ViewSet):
             "fecha_ultimo_registro": stats.first().fecha,
             "fecha_primer_registro": stats.last().fecha,
         })
+
+
+def _resolver_coordenadas(valor, nombre_campo: str) -> dict | None:
+    """
+    Si valor es string (dirección), lo geocodifica a {lat, lng}.
+    Si ya es dict con lat/lng, lo devuelve tal cual.
+    Retorna None si no se pudo resolver.
+    """
+    if isinstance(valor, dict):
+        return valor  # Ya son coordenadas
+    if isinstance(valor, str):
+        resultado = geocode_direccion(valor)
+        if resultado is None:
+            logger.warning(f"No se pudo geocodificar {nombre_campo}: '{valor}'")
+        return resultado
+    logger.error(f"Tipo inesperado para {nombre_campo}: {type(valor)}")
+    return None
 
 
 def _interpretar_correlacion(valor: float) -> str:

@@ -66,31 +66,47 @@ class NavegacionSerializer(serializers.ModelSerializer):
 
 
 class RutaSeguraInputSerializer(serializers.Serializer):
-    """Validación del input para POST /api/v1/rutas/segura/"""
-    origen = serializers.DictField(
-        child=serializers.FloatField(),
-        help_text='{"lat": 6.2442, "lng": -75.5812}',
+    """Validación del input para POST /api/v1/rutas/segura/
+
+    Acepta dos formatos para origen y destino:
+
+    1. **Coordenadas** (formato original):
+       {"lat": 6.2442, "lng": -75.5812}
+
+    2. **Dirección** (geocodificación vía Nominatim/OSM):
+       "Cra 80 # 30-15, Medellín, Antioquia"
+    """
+    origen = serializers.JSONField(
+        help_text='Dirección (string) o coordenadas {"lat": 6.24, "lng": -75.58}',
     )
-    destino = serializers.DictField(
-        child=serializers.FloatField(),
-        help_text='{"lat": 6.2500, "lng": -75.5900}',
+    destino = serializers.JSONField(
+        help_text='Dirección (string) o coordenadas {"lat": 6.25, "lng": -75.59}',
     )
     modo_lluvias = serializers.BooleanField(default=True, required=False)
     id_cliente = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
-    def validate_origen(self, value):
-        if "lat" not in value or "lng" not in value:
+    def _validar_punto(self, value, campo: str):
+        if isinstance(value, dict):
+            if "lat" not in value or "lng" not in value:
+                raise serializers.ValidationError(
+                    f"{campo} como coordenadas debe contener 'lat' y 'lng'"
+                )
+        elif isinstance(value, str):
+            if len(value.strip()) < 3:
+                raise serializers.ValidationError(
+                    f"{campo} como dirección debe tener al menos 3 caracteres"
+                )
+        else:
             raise serializers.ValidationError(
-                "origen debe contener 'lat' y 'lng'"
+                f"{campo} debe ser string (dirección) u objeto {{'lat': ..., 'lng': ...}}"
             )
         return value
 
+    def validate_origen(self, value):
+        return self._validar_punto(value, "origen")
+
     def validate_destino(self, value):
-        if "lat" not in value or "lng" not in value:
-            raise serializers.ValidationError(
-                "destino debe contener 'lat' y 'lng'"
-            )
-        return value
+        return self._validar_punto(value, "destino")
 
 
 class EstadisticaAccidenteSerializer(serializers.ModelSerializer):

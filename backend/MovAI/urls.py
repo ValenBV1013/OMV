@@ -26,6 +26,7 @@ urlpatterns = [
     path("geo/zonas-riesgo", GeoViewSet.as_view({"get": "list"}), name="geo-zonas"),
     path("geo/zonas-riesgo/<int:pk>", GeoViewSet.as_view({"get": "retrieve"}), name="geo-zona-detail"),
     path("geo/resumen", GeoViewSet.as_view({"get": "resumen"}), name="geo-resumen"),
+    path("geo/geocodificar", GeoViewSet.as_view({"post": "geocodificar"}), name="geo-geocodificar"),
 
     # Estadísticas
     path(
