@@ -1,12 +1,12 @@
 """
-URLs del módulo de Rutas Seguras.
+URLs del módulo de Rutas Seguras e Infraestructura.
 Monta todos los endpoints bajo /api/v1/
 """
 
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from .views import ClimaViewSet, EstadisticaViewSet, GeoViewSet, RutaViewSet
+from .views import ClimaViewSet, DashboardInitView, EstadisticaViewSet, GeoViewSet, RutaViewSet
 
 router = SimpleRouter(trailing_slash=False)
 
@@ -39,4 +39,7 @@ urlpatterns = [
         EstadisticaViewSet.as_view({"get": "reporte"}),
         name="estad-reporte",
     ),
+
+    # Dashboard
+    path("dashboard/init/", DashboardInitView.as_view(), name="dashboard_init"),
 ]

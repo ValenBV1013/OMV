@@ -1,5 +1,5 @@
 """
-Vistas DRF para el módulo de Rutas Seguras en Temporada de Lluvias.
+Vistas DRF para los módulos de Rutas Seguras e Infraestructura.
 """
 
 import logging
@@ -11,7 +11,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import AlertaClima, EstadisticaAccidente, Navegacion, ZonaRiesgo
+from .models import AlertaClima, EstadisticaAccidente, InfraestructuraFija, Navegacion, SegmentoVial, ZonaRiesgo
 from .serializers import (
     AlertaClimaSerializer,
     ClimaActualSerializer,
@@ -358,3 +358,36 @@ def _interpretar_correlacion(valor: float) -> str:
         return "Sin correlación significativa"
     else:
         return "Correlación leve"
+
+
+# ═══════════════════════════════════════════════
+# MÓDULO: INFRAESTRUCTURA Y TRÁFICO
+# ═══════════════════════════════════════════════
+
+from rest_framework.views import APIView
+
+
+class DashboardInitView(APIView):
+    """GET /api/v1/dashboard/init/ — Datos iniciales para el dashboard de infraestructura."""
+
+    def get(self, request):
+        infra = InfraestructuraFija.objects.filter(activo=True)
+        features = []
+        for item in infra:
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": item.ubicacion if isinstance(item.ubicacion, list) else item.ubicacion.get('coordinates', [0, 0])
+                },
+                "properties": {
+                    "id": item.id,
+                    "nombre": item.nombre,
+                    "tipo": item.tipo
+                }
+            })
+
+        return Response({
+            "type": "FeatureCollection",
+            "features": features
+        })

@@ -1,6 +1,7 @@
 """
-Tareas programadas con APScheduler.
-Polling periódico del clima y limpieza de alertas expiradas.
+Tareas programadas.
+- APScheduler: polling periódico del clima y limpieza de alertas expiradas (Rutas Seguras)
+- Celery: actualización periódica de datos de tráfico (Infraestructura)
 """
 
 import logging
@@ -64,3 +65,25 @@ def stop_scheduler():
         _scheduler.shutdown(wait=False)
         _scheduler = None
         logger.info("APScheduler detenido")
+
+
+# ═══════════════════════════════════════════════
+# Tareas Celery — Módulo de Tráfico
+# ═══════════════════════════════════════════════
+
+from celery import shared_task
+from .services.traffic_engine import fetch_mapgis_data, analyze_congestion
+
+@shared_task
+def update_traffic_data():
+    """
+    Tarea periódica (cada 5 min) para consumir MapGIS
+    y actualizar el estado de congestión.
+    """
+    # 1. Fetch GeoJSON from public MapGIS DB
+    geojson_data = fetch_mapgis_data()
+
+    # 2. Analyze Congestion & Dynamic Thresholds
+    analyze_congestion(geojson_data)
+
+    return "Traffic data updated and analyzed successfully."
