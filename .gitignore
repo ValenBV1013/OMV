@@ -1,0 +1,90 @@
+# ──────────────────────────────────────
+# Python / Django
+# ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.egg-info/
+
+# Virtual environment
+venv/
+.env
+.venv/
+env/
+
+# Database
+*.sqlite3
+*.sqlite
+db.sqlite3
+
+# Migrations - NO ignorar, son parte del código
+# Pero ignoramos __pycache__ dentro de migrations
+backend/MovAI/migrations/__pycache__/
+
+# Django specific
+*.log
+local_settings.py
+
+# ──────────────────────────────────────
+# Node / Frontend
+# ──────────────────────────────────────
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ──────────────────────────────────────
+# IDE / Editor
+# ──────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.DS_Store
+Thumbs.db
+
+# ──────────────────────────────────────
+# OS
+# ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+
+# ──────────────────────────────────────
+# Logs
+# ──────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ──────────────────────────────────────
+# Environment / Secrets
+# ──────────────────────────────────────
+.env
+.env.local
+.env.production
+*.pem
+
+# ──────────────────────────────────────
+# Testing temp files
+# ──────────────────────────────────────
+test_*.py
+check_*.py
+coverage/
+htmlcov/
+.coverage

@@ -1,0 +1,25 @@
+# OMV Backend - Modulo de Deteccion de Congestion
+
+# Core
+Django>=5.2,<6.0
+
+# API REST
+djangorestframework>=3.17,<3.18
+django-cors-headers>=4.4,<5.0
+
+# WebSockets (tiempo real)
+channels>=4.1,<5.0
+
+# Tareas periodicas
+celery>=5.4,<6.0
+django-celery-beat>=2.6,<3.0
+redis>=5.1,<6.0
+
+# Cliente HTTP
+requests>=2.32,<3.0
+
+# Variables de entorno
+python-dotenv>=1.0,<2.0
+
+# Geo - Transformacion Magna-Sirgas a WGS84
+pyproj>=3.6,<4.0
