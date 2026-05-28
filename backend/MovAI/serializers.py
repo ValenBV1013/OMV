@@ -76,7 +76,7 @@ class RutaSeguraInputSerializer(serializers.Serializer):
         help_text='{"lat": 6.2500, "lng": -75.5900}',
     )
     modo_lluvias = serializers.BooleanField(default=True, required=False)
-    id_cliente = serializers.IntegerField(required=False, allow_null=True)
+    id_cliente = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     def validate_origen(self, value):
         if "lat" not in value or "lng" not in value:

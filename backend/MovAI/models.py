@@ -131,10 +131,11 @@ class Navegacion(models.Model):
     Almacena cada ruta calculada con el modo "Temporada de Lluvias".
     """
     id_navegacion = models.AutoField(primary_key=True, verbose_name="ID Navegación")
-    id_cliente = models.IntegerField(
+    id_cliente = models.CharField(
+        max_length=100,
         blank=True, null=True,
         verbose_name="ID Cliente",
-        help_text="ID del usuario si está autenticado (null = anónimo)"
+        help_text="UUID del cliente generado en frontend y guardado en localStorage"
     )
     origen = models.JSONField(verbose_name="Origen {lat, lng}")
     destino = models.JSONField(verbose_name="Destino {lat, lng}")

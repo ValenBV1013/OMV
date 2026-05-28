@@ -134,7 +134,7 @@ class RutaViewSet(viewsets.ViewSet):
         queryset = Navegacion.objects.all()
         cliente = request.query_params.get("cliente")
         if cliente:
-            queryset = queryset.filter(id_cliente=int(cliente))
+            queryset = queryset.filter(id_cliente=cliente)
 
         page = int(request.query_params.get("page", 1))
         limit = int(request.query_params.get("limit", 20))

@@ -68,7 +68,7 @@ def get_safe_route(
     origen: dict,
     destino: dict,
     modo_lluvias: bool = True,
-    id_cliente: int | None = None,
+    id_cliente: str | None = None,
     save_history: bool = True,
 ) -> dict:
     """
@@ -83,7 +83,7 @@ def get_safe_route(
         origen: {lat, lng}
         destino: {lat, lng}
         modo_lluvias: si está activo, prioriza seguridad sobre tiempo
-        id_cliente: opcional, ID del usuario
+        id_cliente: opcional, UUID del cliente (frontend localStorage)
         save_history: si se persiste en DB
 
     Returns:
