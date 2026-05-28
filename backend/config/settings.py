@@ -11,19 +11,24 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Cargar variables de entorno desde .env
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-aib#hee%%rwoznyb9!*8ge#-vn0%=p!8!@b8j^4om(f9d(ga5j'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-aib#hee%%rwoznyb9!*8ge#-vn0%=p!8!@b8j^4om(f9d(ga5j)')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = []
 
@@ -41,7 +46,9 @@ INSTALLED_APPS = [
     # Librerías externas
     'rest_framework',
     'corsheaders',
-    
+    'channels',
+    'django_celery_beat',
+
     # Tu aplicación
     'MovAI',
 ]
@@ -111,9 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-co'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Bogota'
 
 USE_I18N = True
 
@@ -125,6 +132,98 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ──────────────────────────────────────────────
+#  CORS
+# ──────────────────────────────────────────────
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
+
+
+# ──────────────────────────────────────────────
+#  DRF (Django REST Framework)
+# ──────────────────────────────────────────────
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',  # solo en DEBUG
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'COERCE_DECIMAL_TO_STRING': True,
+}
+
+
+# ──────────────────────────────────────────────
+#  ASGI / Channels (WebSockets)
+# ──────────────────────────────────────────────
+
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
+# En producción, descomentar y configurar Redis:
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/1')],
+#         },
+#     },
+# }
+
+
+# ──────────────────────────────────────────────
+#  Celery (Tareas periódicas)
+# ──────────────────────────────────────────────
+
+# Modo eager para desarrollo (ejecuta tareas sincrónicamente)
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# Broker y backend (Redis en producción)
+# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = 'memory://'  # Broker en memoria para desarrollo
+CELERY_RESULT_BACKEND = 'cache+memory://'
+
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Schedule por defecto (se puede configurar vía admin de django-celery-beat)
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'traffic-update-every-5min': {
+        'task': 'MovAI.tasks.update_traffic_data',
+        'schedule': 300.0,  # cada 5 minutos
+        'options': {'expires': 290},
+    },
+    'cleanup-stale-events-daily': {
+        'task': 'MovAI.tasks.cleanup_stale_events',
+        'schedule': crontab(hour=3, minute=0),
+    },
+    'compact-kpis-daily': {
+        'task': 'MovAI.tasks.compact_kpis',
+        'schedule': crontab(hour=2, minute=0),
+    },
+}
+
+
+# ──────────────────────────────────────────────
+#  APIs Externas
+# ──────────────────────────────────────────────
+
+# TomTom API (free tier)
+TOMTOM_API_KEY = os.getenv('TOMTOM_API_KEY', '')
+
+# HERE Maps API (free tier — fallback)
+HERE_API_KEY = os.getenv('HERE_API_KEY', '')
