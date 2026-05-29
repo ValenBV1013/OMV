@@ -3,8 +3,7 @@
 # ──────────────────────────────────────
 __pycache__/
 *.py[cod]
-*.pyo
-*.egg-info/
+*.pyo*.egg-info/
 dist/
 build/
 *.egg
@@ -20,11 +19,13 @@ env/
 # Database
 *.sqlite3
 *.sqlite
+*.db
 db.sqlite3
 
 # Migrations - NO ignorar, son parte del código
 # Pero ignoramos __pycache__ dentro de migrations
 backend/MovAI/migrations/__pycache__/
+migrations/__pycache__/
 
 # Django specific
 *.log
@@ -84,7 +85,14 @@ pnpm-debug.log*
 # Testing temp files
 # ──────────────────────────────────────
 test_*.py
+test_*.json
 check_*.py
 coverage/
 htmlcov/
 .coverage
+
+# ──────────────────────────────────────
+# GeoJSON raw data (large files, load via management command)
+# ──────────────────────────────────────
+backend/geodata/*.geojson
+!backend/geodata/.gitkeep

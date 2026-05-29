@@ -1,16 +1,76 @@
 """
-Tareas periódicas de Celery para el módulo de congestión.
-
-Schedule:
-  - Cada 5 min (hora pico 6:00-22:00): update_traffic_data
-  - Cada 30 min (hora valle 22:00-6:00): update_traffic_data (opcional)
-  - Cada día 3:00 AM: cleanup_stale_events
-  - Cada día 2:00 AM: compact_kpis
+Tareas programadas.
+- APScheduler: polling periódico del clima y limpieza de alertas expiradas (Rutas Seguras)
+- Celery: actualización periódica de datos de tráfico (Infraestructura)
 """
 
-import time
 import logging
+import time
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from django.conf import settings
+
+from .services.weather import desactivar_alertas_expiradas, poll_current_weather
+
+logger = logging.getLogger(__name__)
+
+_scheduler = None
+
+
+def start_scheduler():
+    """
+    Inicia el scheduler de APScheduler con las tareas periódicas.
+    Se llama desde `ready()` en apps.py.
+    """
+    global _scheduler
+
+    if _scheduler is not None:
+        logger.warning("Scheduler ya estaba iniciado, se omite")
+        return
+
+    _scheduler = BackgroundScheduler(daemon=True)
+
+    # Polling de clima cada 10 minutos
+    _scheduler.add_job(
+        poll_current_weather,
+        trigger="interval",
+        minutes=getattr(settings, "OWM_POLL_INTERVAL_MINUTES", 10),
+        id="poll_weather",
+        name="Obtener clima actual de OpenWeatherMap",
+        replace_existing=True,
+        misfire_grace_time=60,
+    )
+
+    # Limpieza de alertas expiradas cada 30 minutos
+    _scheduler.add_job(
+        desactivar_alertas_expiradas,
+        trigger="interval",
+        minutes=30,
+        id="cleanup_alerts",
+        name="Desactivar alertas climáticas expiradas",
+        replace_existing=True,
+        misfire_grace_time=120,
+    )
+
+    _scheduler.start()
+    logger.info(
+        "APScheduler iniciado: poll_weather cada %d min, cleanup_alerts cada 30 min",
+        getattr(settings, "OWM_POLL_INTERVAL_MINUTES", 10),
+    )
+
+
+def stop_scheduler():
+    """Detiene el scheduler. Se llama al finalizar la app."""
+    global _scheduler
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
+        _scheduler = None
+        logger.info("APScheduler detenido")
+
+
+# ═══════════════════════════════════════════════
+# Tareas Celery — Módulo de Tráfico
+# ═══════════════════════════════════════════════
 from celery import shared_task
 from django.utils import timezone
 

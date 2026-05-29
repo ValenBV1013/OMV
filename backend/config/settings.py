@@ -20,6 +20,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Cargar variables de entorno desde .env
 load_dotenv(BASE_DIR / '.env')
 
+# ─────────────────────────────────────────────
+# OMW API — Clima en Tiempo Real (desde .env)
+# ─────────────────────────────────────────────
+OWM_API_KEY = os.getenv('OWM_API_KEY', '')
+OWM_POLL_INTERVAL_MINUTES = os.getenv('OWM_POLL_INTERVAL_MINUTES', 10)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -93,6 +99,16 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
+}
+
+# ─────────────────────────────────────────────
+# Configuración de Rutas Seguras — Límites
+# ─────────────────────────────────────────────
+SAFE_ROUTE_DEFAULTS = {
+    "MODE_LLUVIAS": True,
+    "UMBRAL_RIESGO_MODERADO": 0.50,
+    "UMBRAL_RIESGO_ALTO": 0.75,
+    "OSRM_TIMEOUT": 15,
 }
 
 
