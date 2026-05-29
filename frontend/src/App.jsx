@@ -6,6 +6,9 @@ import FotomultasTable from './components/FotomultasTable';
 import AIAssistant from './components/AIAssistant';
 import TrafficCongestionMap from './components/TrafficCongestionMap';
 import ErrorBoundary from './components/ErrorBoundary';
+import SafeRouteForm from './components/SafeRouteForm';
+import SafeRouteResult from './components/SafeRouteResult';
+import { getSafeRoute } from './services/safeRoutesApi';
 
 // --- IMPORTACIÓN DE IMÁGENES PNG LOCALES ---
 import imgVarianteCaldas from './assets/variante_caldas.png';
@@ -62,10 +65,15 @@ function App() {
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   
-  const [activeView, setActiveView] = useState('mapaIA'); // 'mapaIA' | 'estadisticas' | 'congestion'
+  const [activeView, setActiveView] = useState('mapaIA'); // 'mapaIA' | 'congestion' | 'estadisticas' | 'rutas'
 
   const [searchCoords, setSearchCoords] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
+
+  // Estado del módulo Rutas Seguras
+  const [routeResult, setRouteResult] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState(null);
 
   const [noticias, setNoticias] = useState(RESPALDO_NOTICIAS);
   const [loadingNoticias, setLoadingNoticias] = useState(true);
@@ -139,11 +147,31 @@ function App() {
     setActiveView('mapaIA');
   };
 
+  const handleCalculateRoute = async (origen, destino, modoLluvias) => {
+    setRouteLoading(true);
+    setRouteError(null);
+    setRouteResult(null);
+    try {
+      const result = await getSafeRoute(origen, destino, modoLluvias);
+      if (result.error) {
+        setRouteError(result.error);
+      } else {
+        setRouteResult(result);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Error al calcular la ruta';
+      setRouteError(msg);
+    } finally {
+      setRouteLoading(false);
+    }
+  };
+  };
+
   return (
     <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
       <Navbar />
 
-      <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4">
+      <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4 flex-wrap">
         <button 
           onClick={() => setActiveView('mapaIA')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
@@ -167,6 +195,14 @@ function App() {
           }`}
         >
           📊 Panel de Estadísticas & Reportes
+        </button>
+        <button 
+          onClick={() => setActiveView('rutas')}
+          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
+            activeView === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+          }`}
+        >
+          🛡️ Rutas Seguras
         </button>
       </div>
 
@@ -201,6 +237,31 @@ function App() {
             <ErrorBoundary>
               <TrafficCongestionMap />
             </ErrorBoundary>
+          </div>
+        ) : activeView === 'rutas' ? (
+          <div className="max-w-2xl mx-auto space-y-6" id="rutas-seguras">
+            <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+              <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
+            </div>
+
+            {routeError && (
+              <div className="bg-rose-900/40 border border-rose-700 rounded-xl p-4 text-rose-300 text-sm">
+                {routeError}
+              </div>
+            )}
+
+            {routeResult && (
+              <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+                <SafeRouteResult
+                  result={routeResult}
+                  onNewSearch={() => {
+                    setRouteResult(null);
+                    setRouteError(null);
+                  }}
+                />
+              </div>
+            )}
+          </div>
           </div>
         ) : (
           <div className="space-y-8">
