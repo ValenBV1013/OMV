@@ -4,6 +4,8 @@ import MapSection from './components/MapSection';
 import NewsFeed from './components/NewsFeed';
 import FotomultasTable from './components/FotomultasTable';
 import AIAssistant from './components/AIAssistant';
+import TrafficCongestionMap from './components/TrafficCongestionMap';
+import ErrorBoundary from './components/ErrorBoundary';
 import SafeRouteForm from './components/SafeRouteForm';
 import SafeRouteResult from './components/SafeRouteResult';
 import { getSafeRoute } from './services/safeRoutesApi';
@@ -63,7 +65,7 @@ function App() {
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   
-  const [vista, setVista] = useState('mapa');
+  const [activeView, setActiveView] = useState('mapaIA'); // 'mapaIA' | 'congestion' | 'estadisticas' | 'rutas'
 
   const [searchCoords, setSearchCoords] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
@@ -142,7 +144,7 @@ function App() {
   const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
-    setVista('mapa');
+    setActiveView('mapaIA');
   };
 
   const handleCalculateRoute = async (origen, destino, modoLluvias) => {
@@ -170,25 +172,33 @@ function App() {
 
       <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4 flex-wrap">
         <button 
-          onClick={() => setVista('mapa')}
+          onClick={() => setActiveView('mapaIA')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'mapa' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            activeView === 'mapaIA' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
           🗺️ Mapa Predictivo IA
         </button>
         <button 
-          onClick={() => setVista('estadisticas')}
+          onClick={() => setActiveView('congestion')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            activeView === 'congestion' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+          }`}
+        >
+          🚦 Mapa de Congestión
+        </button>
+        <button 
+          onClick={() => setActiveView('estadisticas')}
+          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
+            activeView === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
           📊 Panel de Estadísticas & Reportes
         </button>
         <button 
-          onClick={() => setVista('rutas')}
+          onClick={() => setActiveView('rutas')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            activeView === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
           🛡️ Rutas Seguras
@@ -196,7 +206,7 @@ function App() {
       </div>
 
       <main className="flex-1 container mx-auto p-4 space-y-8">
-        {vista === 'mapa' ? (
+        {activeView === 'mapaIA' ? (
           <div className="grid grid-cols-1 text-black lg:grid-cols-3 gap-6 h-[75vh]">
             <div className="lg:col-span-2 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
               <MapSection 
@@ -221,7 +231,13 @@ function App() {
               />
             </div>
           </div>
-        ) : vista === 'rutas' ? (
+        ) : activeView === 'congestion' ? (
+          <div className="h-[75vh] bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
+            <ErrorBoundary>
+              <TrafficCongestionMap />
+            </ErrorBoundary>
+          </div>
+        ) : activeView === 'rutas' ? (
           <div className="max-w-2xl mx-auto space-y-6" id="rutas-seguras">
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
               <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
@@ -295,7 +311,7 @@ function App() {
                         </td>
                         <td className="p-3 text-center">
                           <button 
-                            onClick={() => setVista('mapa')}
+                            onClick={() => setActiveView('mapaIA')}
                             className="bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold px-3 py-1.5 rounded-lg transition shadow"
                           >
                             Ver en Mapa

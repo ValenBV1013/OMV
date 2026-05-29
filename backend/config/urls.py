@@ -1,5 +1,8 @@
 """
 URL configuration for config project.
+
+API base: /api/v1/
+Admin:    /admin/
 """
 from django.contrib import admin
 from django.urls import include, path

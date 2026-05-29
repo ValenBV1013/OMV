@@ -1,11 +1,19 @@
 """
-Serializers DRF para el módulo de Rutas Seguras.
+Serializadores DRF para módulos de Rutas Seguras e Infraestructura/Tráfico.
 """
 
 from rest_framework import serializers
 
-from .models import AlertaClima, EstadisticaAccidente, Navegacion, ZonaRiesgo
+from .models import (
+    AlertaClima, DashboardConfig, EstadisticaAccidente, EventoCongestion,
+    FlujoVehicular, Navegacion, RegistroKPI, RutaSugerida, SegmentoVial,
+    ZonaRiesgo,
+)
 
+
+# ═══════════════════════════════════════════════
+# Rutas Seguras — Clima
+# ═══════════════════════════════════════════════
 
 class AlertaClimaSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(
@@ -66,22 +74,9 @@ class NavegacionSerializer(serializers.ModelSerializer):
 
 
 class RutaSeguraInputSerializer(serializers.Serializer):
-    """Validación del input para POST /api/v1/rutas/segura/
-
-    Acepta dos formatos para origen y destino:
-
-    1. **Coordenadas** (formato original):
-       {"lat": 6.2442, "lng": -75.5812}
-
-    2. **Dirección** (geocodificación vía Nominatim/OSM):
-       "Cra 80 # 30-15, Medellín, Antioquia"
-    """
-    origen = serializers.JSONField(
-        help_text='Dirección (string) o coordenadas {"lat": 6.24, "lng": -75.58}',
-    )
-    destino = serializers.JSONField(
-        help_text='Dirección (string) o coordenadas {"lat": 6.25, "lng": -75.59}',
-    )
+    """Validación del input para POST /api/v1/rutas/segura/"""
+    origen = serializers.JSONField()
+    destino = serializers.JSONField()
     modo_lluvias = serializers.BooleanField(default=True, required=False)
     id_cliente = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
@@ -138,3 +133,89 @@ class ClimaActualSerializer(serializers.Serializer):
     icon = serializers.CharField()
     timestamp = serializers.CharField()
     alertas_activas = serializers.IntegerField()
+
+
+# ═══════════════════════════════════════════════
+# Infraestructura / Tráfico
+# ═══════════════════════════════════════════════
+
+class SegmentoListSerializer(serializers.ModelSerializer):
+    """Serializer plano para listar segmentos con su último estado."""
+    ultimo_flujo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SegmentoVial
+        fields = [
+            'id', 'objectid', 'nombre', 'label', 'nombre_comun',
+            'tipo_via', 'sentido', 'velocidad_maxima', 'jerarquia_via',
+            'comuna', 'municipio', 'activo', 'geometria',
+            'geometria_wgs84',
+            'ultimo_flujo',
+        ]
+
+    def get_ultimo_flujo(self, obj):
+        ultimo = obj.flujos.order_by('-timestamp').first()
+        if not ultimo:
+            return None
+        return {
+            "velocidad_promedio": ultimo.velocidad_promedio,
+            "velocidad_libre": ultimo.velocidad_libre,
+            "nivel_congestion": ultimo.nivel_congestion,
+            "congestionado": ultimo.congestionado,
+            "fuente": ultimo.fuente,
+            "timestamp": ultimo.timestamp.isoformat(),
+        }
+
+
+class SegmentoDetailSerializer(serializers.ModelSerializer):
+    """Serializer detallado con historial de flujos."""
+    flujos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SegmentoVial
+        fields = '__all__'
+
+    def get_flujos(self, obj):
+        qs = obj.flujos.order_by('-timestamp')[:48]
+        return [
+            {
+                "velocidad_promedio": f.velocidad_promedio,
+                "nivel_congestion": f.nivel_congestion,
+                "timestamp": f.timestamp.isoformat(),
+            }
+            for f in qs
+        ]
+
+
+class EventoCongestionSerializer(serializers.ModelSerializer):
+    """Serializer para eventos de congestión."""
+    segmento_nombre = serializers.CharField(source='segmento.nombre', read_only=True)
+    duracion_s = serializers.IntegerField(source='duracion_segundos', read_only=True)
+
+    class Meta:
+        model = EventoCongestion
+        fields = [
+            'id', 'segmento_id', 'segmento_nombre',
+            'nivel', 'velocidad_promedio', 'velocidad_libre',
+            'timestamp', 'activo', 'resuelto_en', 'duracion_s',
+        ]
+
+
+class RutaSugeridaSerializer(serializers.ModelSerializer):
+    """Serializer para rutas sugeridas."""
+    class Meta:
+        model = RutaSugerida
+        fields = '__all__'
+
+
+class RutaAlternativaInputSerializer(serializers.Serializer):
+    """Validador para el endpoint de rutas alternativas."""
+    start_lat = serializers.FloatField(required=True)
+    start_lng = serializers.FloatField(required=True)
+    end_lat = serializers.FloatField(required=True)
+    end_lng = serializers.FloatField(required=True)
+
+
+class RutaAcceptSerializer(serializers.Serializer):
+    """Validador para aceptar una ruta sugerida."""
+    aceptada = serializers.BooleanField(required=True)
