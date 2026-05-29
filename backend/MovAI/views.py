@@ -147,6 +147,14 @@ class RutaViewSet(viewsets.ViewSet):
         if "error" in resultado:
             return Response(resultado, status=status.HTTP_400_BAD_REQUEST)
 
+        # Incluir las direcciones originales + normalizadas en la respuesta
+        resultado["direccion_origen"] = data.get("origen", "")
+        resultado["direccion_destino"] = data.get("destino", "")
+        resultado["direccion_normalizada_origen"] = origen.get("direccion_normalizada", "")
+        resultado["direccion_normalizada_destino"] = destino.get("direccion_normalizada", "")
+        resultado["precision_origen"] = origen.get("precision", "unknown")
+        resultado["precision_destino"] = destino.get("precision", "unknown")
+
         return Response(resultado)
 
     @action(detail=False, methods=["get"])
@@ -331,9 +339,9 @@ class EstadisticaViewSet(viewsets.ViewSet):
         })
 
 
-def _resolver_coordenadas(valor, nombre_campo: str) -> dict | None:
+def _resolver_coordenadas(valor, nombre_campo: str, input_original: str = "") -> dict | None:
     """
-    Si valor es string (dirección), lo geocodifica a {lat, lng}.
+    Si valor es string (dirección), lo geocodifica a {lat, lng} + metadatos.
     Si ya es dict con lat/lng, lo devuelve tal cual.
     Retorna None si no se pudo resolver.
     """
