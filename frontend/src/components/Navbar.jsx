@@ -5,7 +5,7 @@ import logoOMV from '../assets/logo_OMV.jpeg';
 
 const Navbar = () => {
   return (
-    <header className="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md">
+    <header className="bg-slate-900 text-white p-4 sticky top-0 z-[9999] shadow-md">
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
         
         {/* Contenedor del Logo y Título */}
@@ -25,6 +25,7 @@ const Navbar = () => {
           <a href="#mapa" className="hover:text-amber-400 transition">Mapa Crítico</a>
           <a href="#noticias" className="hover:text-amber-400 transition">Histórico & Noticias</a>
           <a href="#fotomultas" className="hover:text-amber-400 transition">Fotomultas & Costos</a>
+          <a href="#rutas-seguras" className="hover:text-amber-400 transition">Rutas Seguras</a>
         </nav>
 
         {/* Botón de Fuente Oficial */}
