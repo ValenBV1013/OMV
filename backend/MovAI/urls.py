@@ -10,9 +10,6 @@ from .views import ClimaViewSet, DashboardInitView, EstadisticaViewSet, GeoViewS
 
 router = SimpleRouter(trailing_slash=False)
 
-# Registramos los ViewSets que tienen acciones personalizadas
-# (usamos SimpleRouter solo para GeoViewSet que es ReadOnlyModelViewSet)
-
 urlpatterns = [
     # Clima
     path("clima/actual", ClimaViewSet.as_view({"get": "actual"}), name="clima-actual"),
@@ -29,16 +26,8 @@ urlpatterns = [
     path("geo/geocodificar", GeoViewSet.as_view({"post": "geocodificar"}), name="geo-geocodificar"),
 
     # Estadísticas
-    path(
-        "estadisticas/correlacion",
-        EstadisticaViewSet.as_view({"get": "correlacion"}),
-        name="estad-correlacion",
-    ),
-    path(
-        "estadisticas/reporte",
-        EstadisticaViewSet.as_view({"get": "reporte"}),
-        name="estad-reporte",
-    ),
+    path("estadisticas/correlacion", EstadisticaViewSet.as_view({"get": "correlacion"}), name="estad-correlacion"),
+    path("estadisticas/reporte", EstadisticaViewSet.as_view({"get": "reporte"}), name="estad-reporte"),
 
     # Dashboard
     path("dashboard/init/", DashboardInitView.as_view(), name="dashboard_init"),
