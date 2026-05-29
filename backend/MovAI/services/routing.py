@@ -140,6 +140,8 @@ def get_safe_route(
             "type": "LineString",
             "coordinates": mejor_ruta["geometry"],
         },
+        "origen_coords": {"lat": origen["lat"], "lng": origen["lng"]},
+        "destino_coords": {"lat": destino["lat"], "lng": destino["lng"]},
         "riesgo_promedio": mejor_ruta["evaluacion"]["riesgo_promedio"],
         "max_riesgo": mejor_ruta["evaluacion"]["max_riesgo"],
         "restricciones_evitadas": mejor_ruta["evaluacion"]["restricciones"],
@@ -149,6 +151,7 @@ def get_safe_route(
         "nivel_alerta": _nivel_alerta(mejor_ruta["evaluacion"]["riesgo_promedio"]),
         "detalle_riesgos": mejor_ruta["evaluacion"]["scores_por_tipo"],
         "factor_lluvia": mejor_ruta["evaluacion"]["factor_lluvia"],
+        "puntos_riesgo": mejor_ruta["evaluacion"]["puntos_riesgo"],
         "alternativas": len(routes_evaluadas),
     }
 
