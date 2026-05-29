@@ -1,46 +1,49 @@
 """
-Vistas DRF para los módulos de Rutas Seguras e Infraestructura.
+Vistas DRF para los módulos de Rutas Seguras e Infraestructura/Tráfico.
 """
 
 import logging
 from datetime import date, timedelta
 
-from django.db.models import Avg, Count, Q, Sum
-from django.utils import timezone as tz
-from rest_framework import status, viewsets
+from django.db.models import Avg, Sum
+from rest_framework import generics, status, views, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
-from .models import AlertaClima, EstadisticaAccidente, InfraestructuraFija, Navegacion, SegmentoVial, ZonaRiesgo
+from .models import (
+    AlertaClima, EstadisticaAccidente, EventoCongestion, FlujoVehicular,
+    InfraestructuraFija, Navegacion, RegistroKPI, RutaSugerida, SegmentoVial,
+    ZonaRiesgo,
+)
 from .serializers import (
-    AlertaClimaSerializer,
-    ClimaActualSerializer,
-    CorrelacionClimaAccidenteSerializer,
-    EstadisticaAccidenteSerializer,
-    NavegacionSerializer,
-    RutaSeguraInputSerializer,
+    AlertaClimaSerializer, ClimaActualSerializer,
+    CorrelacionClimaAccidenteSerializer, EstadisticaAccidenteSerializer,
+    EventoCongestionSerializer, NavegacionSerializer,
+    RutaAlternativaInputSerializer, RutaSeguraInputSerializer,
+    RutaSugeridaSerializer, SegmentoDetailSerializer, SegmentoListSerializer,
     ZonaRiesgoSerializer,
 )
+from .services.dashboard_service import DashboardService
 from .services.geocode import geocode_direccion
+from .services.kpi_recorder import KPIRecorder
+from .services.route_planner import RoutePlanner
 from .services.routing import get_safe_route
 from .services.weather import fetch_current_weather
 
 logger = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────
-# MÓDULO CLIMA
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# MÓDULO: RUTAS SEGURAS — CLIMA
+# ═══════════════════════════════════════════════
 
 class ClimaViewSet(viewsets.ViewSet):
     """Endpoint: /api/v1/clima/"""
 
     @action(detail=False, methods=["get"])
     def actual(self, request):
-        """
-        GET /api/v1/clima/actual/
-        Devuelve el clima actual en Medellín + alertas activas.
-        """
+        """GET /api/v1/clima/actual/ — Clima actual en Medellín + alertas activas."""
         datos_clima = fetch_current_weather()
         alertas_activas = AlertaClima.objects.filter(activa=True).count()
 
@@ -59,10 +62,7 @@ class ClimaViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def alertas(self, request):
-        """
-        GET /api/v1/clima/alertas/
-        Historial de alertas climáticas. Filtro: ?activas=true
-        """
+        """GET /api/v1/clima/alertas/ — Historial de alertas climáticas."""
         activas = request.query_params.get("activas", "").lower()
         queryset = AlertaClima.objects.all()
         if activas == "true":
@@ -84,48 +84,32 @@ class ClimaViewSet(viewsets.ViewSet):
         })
 
 
-# ─────────────────────────────────────────────
-# MÓDULO RUTAS
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# MÓDULO: RUTAS SEGURAS — RUTAS
+# ═══════════════════════════════════════════════
 
 class RutaViewSet(viewsets.ViewSet):
     """Endpoint: /api/v1/rutas/"""
 
     @action(detail=False, methods=["post"])
     def segura(self, request):
-        """
-        POST /api/v1/rutas/segura/
-        Acepta coordenadas o direcciones:
-
-        Con coordenadas:
-          {"origen": {"lat": 6.2442, "lng": -75.5812},
-           "destino": {"lat": 6.2500, "lng": -75.5900},
-           "modo_lluvias": true,
-           "id_cliente": null}
-
-        Con direcciones (geocodificación automática vía Nominatim/OSM):
-          {"origen": "Cra 80 # 30-15, Medellín",
-           "destino": "Cl 10 # 41-20, Medellín",
-           "modo_lluvias": true,
-           "id_cliente": null}
-        """
+        """POST /api/v1/rutas/segura/ — Calcula ruta segura."""
         serializer = RutaSeguraInputSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
 
-        # Resolver direcciones a coordenadas si es necesario
         origen = _resolver_coordenadas(data["origen"], "origen")
         if origen is None:
             return Response(
-                {"error": f"No se pudo geocodificar la dirección de origen"},
+                {"error": "No se pudo geocodificar la dirección de origen"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         destino = _resolver_coordenadas(data["destino"], "destino")
         if destino is None:
             return Response(
-                {"error": f"No se pudo geocodificar la dirección de destino"},
+                {"error": "No se pudo geocodificar la dirección de destino"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -159,10 +143,7 @@ class RutaViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def historial(self, request):
-        """
-        GET /api/v1/rutas/historial/
-        Historial de navegaciones. Filtro: ?cliente=1
-        """
+        """GET /api/v1/rutas/historial/ — Historial de navegaciones."""
         queryset = Navegacion.objects.all()
         cliente = request.query_params.get("cliente")
         if cliente:
@@ -184,9 +165,9 @@ class RutaViewSet(viewsets.ViewSet):
         })
 
 
-# ─────────────────────────────────────────────
-# MÓDULO GEO / RIESGO
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# MÓDULO: RUTAS SEGURAS — GEO / RIESGO
+# ═══════════════════════════════════════════════
 
 class GeoViewSet(viewsets.ReadOnlyModelViewSet):
     """Endpoint: /api/v1/geo/zonas-riesgo/"""
@@ -210,10 +191,7 @@ class GeoViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"])
     def resumen(self, request):
-        """
-        GET /api/v1/geo/resumen/
-        Devuelve conteo de zonas por tipo.
-        """
+        """GET /api/v1/geo/resumen/ — Conteo de zonas por tipo."""
         conteo = {}
         for tipo, _ in ZonaRiesgo.TIPO_CHOICES:
             conteo[tipo] = ZonaRiesgo.objects.filter(tipo=tipo).count()
@@ -225,16 +203,7 @@ class GeoViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"])
     def geocodificar(self, request):
-        """
-        POST /api/v1/geo/geocodificar/
-        Convierte una dirección a coordenadas usando Nominatim (OSM).
-
-        Body: {"direccion": "Cra 80 # 30-15, Medellín, Antioquia"}
-
-        Respuesta:
-          {"direccion": "...", "lat": 6.2442, "lng": -75.5812}
-          o {"error": "..."} con 400 si no se encuentra.
-        """
+        """POST /api/v1/geo/geocodificar/ — Dirección a coordenadas vía Nominatim."""
         direccion = request.data.get("direccion", "")
         if not direccion or not direccion.strip():
             return Response(
@@ -256,20 +225,16 @@ class GeoViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-# ─────────────────────────────────────────────
-# MÓDULO ESTADÍSTICAS
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# MÓDULO: RUTAS SEGURAS — ESTADÍSTICAS
+# ═══════════════════════════════════════════════
 
 class EstadisticaViewSet(viewsets.ViewSet):
     """Endpoint: /api/v1/estadisticas/"""
 
     @action(detail=False, methods=["get"])
     def correlacion(self, request):
-        """
-        GET /api/v1/estadisticas/correlacion/
-        Correlación entre precipitación y accidentes.
-        Params: ?inicio=2024-01-01&fin=2024-12-31
-        """
+        """GET /api/v1/estadisticas/correlacion/ — Correlación lluvia ↔ accidentes."""
         hoy = date.today()
         inicio = request.query_params.get("inicio", str(hoy - timedelta(days=365)))
         fin = request.query_params.get("fin", str(hoy))
@@ -294,7 +259,6 @@ class EstadisticaViewSet(viewsets.ViewSet):
             nivel_precipitacion__gt=0
         ).aggregate(Sum("num_accidentes"))["num_accidentes__sum"] or 0
 
-        # Correlación estimada simple
         correlacion = 0.0
         if total_accidentes > 0 and dias_lluvia > 0:
             proporcion_dias_lluvia = dias_lluvia / max(stats.count(), 1)
@@ -305,7 +269,7 @@ class EstadisticaViewSet(viewsets.ViewSet):
                 4,
             )
 
-        resultado = {
+        return Response({
             "fecha_inicio": inicio,
             "fecha_fin": fin,
             "dias_analizados": stats.count(),
@@ -315,15 +279,11 @@ class EstadisticaViewSet(viewsets.ViewSet):
             "accidentes_en_dias_lluvia": accidentes_lluvia,
             "indice_correlacion": correlacion,
             "interpretacion": _interpretar_correlacion(correlacion),
-        }
-        return Response(resultado)
+        })
 
     @action(detail=False, methods=["get"])
     def reporte(self, request):
-        """
-        GET /api/v1/estadisticas/reporte/
-        Reporte agregado por mes.
-        """
+        """GET /api/v1/estadisticas/reporte/ — Reporte agregado."""
         stats = EstadisticaAccidente.objects.all().order_by("-fecha")[:365]
         if not stats.exists():
             return Response({"mensaje": "No hay datos estadísticos cargados."})
@@ -339,6 +299,146 @@ class EstadisticaViewSet(viewsets.ViewSet):
         })
 
 
+# ═══════════════════════════════════════════════
+# MÓDULO: INFRAESTRUCTURA Y TRÁFICO
+# ═══════════════════════════════════════════════
+
+class DashboardInitView(views.APIView):
+    """
+    GET /api/v1/dashboard/init/
+    Retorna datos iniciales del dashboard de infraestructura.
+    """
+    def get(self, request):
+        try:
+            data = DashboardService.get_init_data()
+            return Response(data)
+        except Exception as e:
+            logger.error("Error en DashboardInitView: %s", e, exc_info=True)
+            return Response(
+                {"error": "Error al inicializar el dashboard"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class SegmentoListView(generics.ListAPIView):
+    """GET /api/v1/segments/ — Lista segmentos viales con filtros."""
+    serializer_class = SegmentoListSerializer
+
+    def get_queryset(self):
+        qs = SegmentoVial.objects.filter(activo=True)
+
+        congestion = self.request.query_params.get('congestion')
+        if congestion:
+            segmentos_ids = FlujoVehicular.objects.filter(
+                nivel_congestion=congestion.upper()
+            ).values_list('segmento_id', flat=True).distinct()
+            qs = qs.filter(id__in=segmentos_ids)
+
+        jerarquia_lte = self.request.query_params.get('jerarquia_lte')
+        if jerarquia_lte:
+            qs = qs.filter(jerarquia_via__lte=int(jerarquia_lte))
+
+        return qs.prefetch_related('flujos')
+
+
+class SegmentoDetailView(generics.RetrieveAPIView):
+    """GET /api/v1/segments/{id}/ — Detalle de segmento con historial."""
+    queryset = SegmentoVial.objects.filter(activo=True)
+    serializer_class = SegmentoDetailSerializer
+
+
+class EventoPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'limit'
+    max_page_size = 100
+
+
+class EventoListView(generics.ListAPIView):
+    """GET /api/v1/congestion-events/ — Lista eventos de congestión."""
+    serializer_class = EventoCongestionSerializer
+    pagination_class = EventoPagination
+
+    def get_queryset(self):
+        qs = EventoCongestion.objects.select_related('segmento')
+
+        active = self.request.query_params.get('active')
+        if active and active.lower() == 'true':
+            qs = qs.filter(activo=True)
+        elif active and active.lower() == 'false':
+            qs = qs.filter(activo=False)
+
+        nivel = self.request.query_params.get('nivel')
+        if nivel:
+            qs = qs.filter(nivel=nivel.upper())
+
+        return qs.order_by('-timestamp')
+
+
+class AlternativeRouteView(views.APIView):
+    """
+    GET /api/v1/routes/alternative/ — Ruta evitando congestión.
+    Aplica RN 2.2.1: ahorro >= 15% o >= 5 min.
+    """
+    def get(self, request):
+        serializer = RutaAlternativaInputSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        params = serializer.validated_data
+        planner = RoutePlanner()
+
+        try:
+            result = planner.find_alternative(
+                start_lat=params['start_lat'],
+                start_lng=params['start_lng'],
+                end_lat=params['end_lat'],
+                end_lng=params['end_lng'],
+            )
+            return Response(result)
+        except Exception as e:
+            logger.error("Error en AlternativeRouteView: %s", e, exc_info=True)
+            return Response(
+                {"error": "Error al calcular ruta alternativa"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AcceptRouteView(views.APIView):
+    """POST /api/v1/routes/{id}/accept/ — Aceptar ruta sugerida."""
+    def post(self, request, ruta_id):
+        try:
+            ruta = RutaSugerida.objects.get(id=ruta_id)
+        except RutaSugerida.DoesNotExist:
+            return Response(
+                {"error": "Ruta no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        aceptada = request.data.get('aceptada', True)
+        ruta.fue_aceptada = bool(aceptada)
+
+        if ruta.fue_aceptada:
+            from django.utils import timezone
+            ruta.aceptada_en = timezone.now()
+            KPIRecorder.record('RUTA_ACEPTADA', 1, metadata={
+                'ruta_id': ruta.id,
+                'ahorro_pct': ruta.ahorro_porcentaje,
+            })
+
+        ruta.save(update_fields=['fue_aceptada', 'aceptada_en'])
+        return Response({"status": "ok", "ruta_id": ruta.id})
+
+
+class KPISummaryView(views.APIView):
+    """GET /api/v1/kpis/summary/ — Resumen de KPIs operativos del día."""
+    def get(self, request):
+        return Response(KPIRecorder.resumen_hoy())
+
+
+# ═══════════════════════════════════════════════
+# Funciones auxiliares
+# ═══════════════════════════════════════════════
+
 def _resolver_coordenadas(valor, nombre_campo: str, input_original: str = "") -> dict | None:
     """
     Si valor es string (dirección), lo geocodifica a {lat, lng} + metadatos.
@@ -346,18 +446,17 @@ def _resolver_coordenadas(valor, nombre_campo: str, input_original: str = "") ->
     Retorna None si no se pudo resolver.
     """
     if isinstance(valor, dict):
-        return valor  # Ya son coordenadas
+        return valor
     if isinstance(valor, str):
         resultado = geocode_direccion(valor)
         if resultado is None:
-            logger.warning(f"No se pudo geocodificar {nombre_campo}: '{valor}'")
+            logger.warning("No se pudo geocodificar %s: '%s'", nombre_campo, valor)
         return resultado
-    logger.error(f"Tipo inesperado para {nombre_campo}: {type(valor)}")
+    logger.error("Tipo inesperado para %s: %s", nombre_campo, type(valor))
     return None
 
 
 def _interpretar_correlacion(valor: float) -> str:
-    """Interpreta el índice de correlación."""
     if valor > 0.3:
         return "Correlación positiva: más lluvia se correlaciona con más accidentes"
     elif valor < -0.3:
@@ -366,36 +465,3 @@ def _interpretar_correlacion(valor: float) -> str:
         return "Sin correlación significativa"
     else:
         return "Correlación leve"
-
-
-# ═══════════════════════════════════════════════
-# MÓDULO: INFRAESTRUCTURA Y TRÁFICO
-# ═══════════════════════════════════════════════
-
-from rest_framework.views import APIView
-
-
-class DashboardInitView(APIView):
-    """GET /api/v1/dashboard/init/ — Datos iniciales para el dashboard de infraestructura."""
-
-    def get(self, request):
-        infra = InfraestructuraFija.objects.filter(activo=True)
-        features = []
-        for item in infra:
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": item.ubicacion if isinstance(item.ubicacion, list) else item.ubicacion.get('coordinates', [0, 0])
-                },
-                "properties": {
-                    "id": item.id,
-                    "nombre": item.nombre,
-                    "tipo": item.tipo
-                }
-            })
-
-        return Response({
-            "type": "FeatureCollection",
-            "features": features
-        })

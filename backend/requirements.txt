@@ -1,6 +1,26 @@
+# OMV Backend
+
+# Core
 Django>=6.0,<7.0
+
+# API REST
 djangorestframework>=3.17,<4.0
 django-cors-headers>=4.9,<5.0
-requests>=2.34,<3.0
-pyproj>=3.7,<4.0
+
+# WebSockets (tiempo real)
+channels>=4.1,<5.0
+
+# Tareas periodicas
+celery>=5.4,<6.0
+django-celery-beat>=2.6,<3.0
+redis>=5.1,<6.0
 apscheduler>=3.11,<4.0
+
+# Cliente HTTP
+requests>=2.34,<3.0
+
+# Variables de entorno
+python-dotenv>=1.0,<2.0
+
+# Geo - Transformacion Magna-Sirgas a WGS84
+pyproj>=3.7,<4.0
