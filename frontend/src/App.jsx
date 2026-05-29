@@ -165,7 +165,6 @@ function App() {
       setRouteLoading(false);
     }
   };
-  };
 
   return (
     <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
@@ -261,7 +260,6 @@ function App() {
                 />
               </div>
             )}
-          </div>
           </div>
         ) : (
           <div className="space-y-8">
