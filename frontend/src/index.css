@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+@import 'leaflet/dist/leaflet.css';
+
+/* Estilos específicos para el mapa */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  background-color: #ffffff;
+}
+
+/* Asegurar que el contenedor del mapa tiene altura */
+.map-container {
+  height: 100vh !important;
+  min-height: 500px !important;
+}
