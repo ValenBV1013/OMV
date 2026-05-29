@@ -149,6 +149,7 @@ class SegmentoListSerializer(serializers.ModelSerializer):
             'id', 'objectid', 'nombre', 'label', 'nombre_comun',
             'tipo_via', 'sentido', 'velocidad_maxima', 'jerarquia_via',
             'comuna', 'municipio', 'activo', 'geometria',
+            'geometria_wgs84',
             'ultimo_flujo',
         ]
 

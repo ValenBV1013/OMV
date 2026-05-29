@@ -4,6 +4,8 @@ import MapSection from './components/MapSection';
 import NewsFeed from './components/NewsFeed';
 import FotomultasTable from './components/FotomultasTable';
 import AIAssistant from './components/AIAssistant';
+import TrafficCongestionMap from './components/TrafficCongestionMap';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // --- IMPORTACIÓN DE IMÁGENES PNG LOCALES ---
 import imgVarianteCaldas from './assets/variante_caldas.png';
@@ -60,7 +62,7 @@ function App() {
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   
-  const [mostrarMapaIA, setMostrarMapaIA] = useState(true); 
+  const [activeView, setActiveView] = useState('mapaIA'); // 'mapaIA' | 'estadisticas' | 'congestion'
 
   const [searchCoords, setSearchCoords] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
@@ -134,7 +136,7 @@ function App() {
   const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
-    setMostrarMapaIA(true);
+    setActiveView('mapaIA');
   };
 
   return (
@@ -143,17 +145,25 @@ function App() {
 
       <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4">
         <button 
-          onClick={() => setMostrarMapaIA(true)}
+          onClick={() => setActiveView('mapaIA')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            mostrarMapaIA ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            activeView === 'mapaIA' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
           🗺️ Mapa Predictivo IA
         </button>
         <button 
-          onClick={() => setMostrarMapaIA(false)}
+          onClick={() => setActiveView('congestion')}
           className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            !mostrarMapaIA ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            activeView === 'congestion' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+          }`}
+        >
+          🚦 Mapa de Congestión
+        </button>
+        <button 
+          onClick={() => setActiveView('estadisticas')}
+          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
+            activeView === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
           }`}
         >
           📊 Panel de Estadísticas & Reportes
@@ -161,7 +171,7 @@ function App() {
       </div>
 
       <main className="flex-1 container mx-auto p-4 space-y-8">
-        {mostrarMapaIA ? (
+        {activeView === 'mapaIA' ? (
           <div className="grid grid-cols-1 text-black lg:grid-cols-3 gap-6 h-[75vh]">
             <div className="lg:col-span-2 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
               <MapSection 
@@ -185,6 +195,12 @@ function App() {
                 onSearchAddress={handleSearchAddress}
               />
             </div>
+          </div>
+        ) : activeView === 'congestion' ? (
+          <div className="h-[75vh] bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
+            <ErrorBoundary>
+              <TrafficCongestionMap />
+            </ErrorBoundary>
           </div>
         ) : (
           <div className="space-y-8">
@@ -236,7 +252,7 @@ function App() {
                         </td>
                         <td className="p-3 text-center">
                           <button 
-                            onClick={() => setMostrarMapaIA(true)}
+                            onClick={() => setActiveView('mapaIA')}
                             className="bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold px-3 py-1.5 rounded-lg transition shadow"
                           >
                             Ver en Mapa

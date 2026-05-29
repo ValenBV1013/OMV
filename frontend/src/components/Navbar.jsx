@@ -23,6 +23,7 @@ const Navbar = () => {
         {/* Navegación interna */}
         <nav className="flex gap-6 text-sm font-medium">
           <a href="#mapa" className="hover:text-amber-400 transition">Mapa Crítico</a>
+          <a href="#congestion" className="hover:text-amber-400 transition">Mapa de Congestión</a>
           <a href="#noticias" className="hover:text-amber-400 transition">Histórico & Noticias</a>
           <a href="#fotomultas" className="hover:text-amber-400 transition">Fotomultas & Costos</a>
         </nav>
