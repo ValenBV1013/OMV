@@ -16,28 +16,28 @@ urlpatterns = [
     # ─────────────────────────────────────────
     # Rutas Seguras — Clima
     # ─────────────────────────────────────────
-    path("clima/actual", ClimaViewSet.as_view({"get": "actual"}), name="clima-actual"),
-    path("clima/alertas", ClimaViewSet.as_view({"get": "alertas"}), name="clima-alertas"),
+    path("clima/actual/", ClimaViewSet.as_view({"get": "actual"}), name="clima-actual"),
+    path("clima/alertas/", ClimaViewSet.as_view({"get": "alertas"}), name="clima-alertas"),
 
     # ─────────────────────────────────────────
     # Rutas Seguras — Rutas
     # ─────────────────────────────────────────
-    path("rutas/segura", RutaViewSet.as_view({"post": "segura"}), name="ruta-segura"),
-    path("rutas/historial", RutaViewSet.as_view({"get": "historial"}), name="ruta-historial"),
+    path("rutas/segura/", RutaViewSet.as_view({"post": "segura"}), name="ruta-segura"),
+    path("rutas/historial/", RutaViewSet.as_view({"get": "historial"}), name="ruta-historial"),
 
     # ─────────────────────────────────────────
     # Rutas Seguras — Geo / Riesgo
     # ─────────────────────────────────────────
-    path("geo/zonas-riesgo", GeoViewSet.as_view({"get": "list"}), name="geo-zonas"),
-    path("geo/zonas-riesgo/<int:pk>", GeoViewSet.as_view({"get": "retrieve"}), name="geo-zona-detail"),
-    path("geo/resumen", GeoViewSet.as_view({"get": "resumen"}), name="geo-resumen"),
-    path("geo/geocodificar", GeoViewSet.as_view({"post": "geocodificar"}), name="geo-geocodificar"),
+    path("geo/zonas-riesgo/", GeoViewSet.as_view({"get": "list"}), name="geo-zonas"),
+    path("geo/zonas-riesgo/<int:pk>/", GeoViewSet.as_view({"get": "retrieve"}), name="geo-zona-detail"),
+    path("geo/resumen/", GeoViewSet.as_view({"get": "resumen"}), name="geo-resumen"),
+    path("geo/geocodificar/", GeoViewSet.as_view({"post": "geocodificar"}), name="geo-geocodificar"),
 
     # ─────────────────────────────────────────
     # Rutas Seguras — Estadísticas
     # ─────────────────────────────────────────
-    path("estadisticas/correlacion", EstadisticaViewSet.as_view({"get": "correlacion"}), name="estad-correlacion"),
-    path("estadisticas/reporte", EstadisticaViewSet.as_view({"get": "reporte"}), name="estad-reporte"),
+    path("estadisticas/correlacion/", EstadisticaViewSet.as_view({"get": "correlacion"}), name="estad-correlacion"),
+    path("estadisticas/reporte/", EstadisticaViewSet.as_view({"get": "reporte"}), name="estad-reporte"),
 
     # ─────────────────────────────────────────
     # Infraestructura — Dashboard
