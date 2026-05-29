@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Django
+*.sqlite3
+*.db
+migrations/__pycache__/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GeoJSON raw data (large files, load via management command)
+backend/geodata/*.geojson
+!backend/geodata/.gitkeep
+
+# Test files
+test_*.json
+test_*.py

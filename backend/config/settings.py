@@ -15,6 +15,12 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ─────────────────────────────────────────────
+# OMW API — Clima en Tiempo Real
+# ─────────────────────────────────────────────
+OWM_API_KEY = "d8f11372f38d217a67b2295fbd25c8b4"
+OWM_POLL_INTERVAL_MINUTES = 10
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -86,6 +92,16 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
+}
+
+# ─────────────────────────────────────────────
+# Configuración de Rutas Seguras — Límites
+# ─────────────────────────────────────────────
+SAFE_ROUTE_DEFAULTS = {
+    "MODE_LLUVIAS": True,
+    "UMBRAL_RIESGO_MODERADO": 0.50,
+    "UMBRAL_RIESGO_ALTO": 0.75,
+    "OSRM_TIMEOUT": 15,
 }
 
 
