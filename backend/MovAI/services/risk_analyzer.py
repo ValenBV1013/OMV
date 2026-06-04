@@ -257,6 +257,18 @@ def evaluar_ruta(route_geometry: list[list[float]], alertas_activas: list | None
     for tipo, valores in scores_por_tipo.items():
         scores_promedio[tipo] = round(sum(valores) / len(valores), 4) if valores else 0.0
 
+    # ── Puntos de riesgo individuales para visualización por segmento ──
+    puntos_riesgo = []
+    for i, punto in enumerate(puntos_muestra):
+        if len(punto) < 2:
+            continue
+        score = scores_acumulados[i] if i < len(scores_acumulados) else 0.0
+        puntos_riesgo.append({
+            "lng": punto[0],
+            "lat": punto[1],
+            "score": round(score, 4),
+        })
+
     return {
         "riesgo_promedio": round(riesgo_promedio, 4),
         "max_riesgo": round(max_riesgo, 4),
@@ -265,4 +277,5 @@ def evaluar_ruta(route_geometry: list[list[float]], alertas_activas: list | None
         "restricciones": list(restricciones_set),
         "scores_por_tipo": scores_promedio,
         "factor_lluvia": round(factor_lluvia, 2),
+        "puntos_riesgo": puntos_riesgo,
     }
