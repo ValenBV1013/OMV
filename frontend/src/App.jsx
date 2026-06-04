@@ -32,24 +32,24 @@ const RESPALDO_NOTICIAS = [
   {
     id: "fb-1",
     titulo: "En la variante a Caldas van nueve muertos: es la vía más letal del Valle de Aburrá",
-    descripcion: "De acuerdo con los reportes judiciales, todas las víctimas registradas en este importante corredor vial se han presentado en la calzada en descenso hacia Medellín, donde vehículos y motos exceden frecuentemente los límites de velocidad permitidos.",
-    imagen: imgVarianteCaldas, 
+    descripcion: "De acuerdo con los reportes judiciales, todas las víctimas registradas en este importante corredor vial se han presentado en la calzada en descenso hacia Medellín...",
+    imagen: imgVarianteCaldas,
     tipo_alerta_display: "Crítico",
     url: "https://www.elcolombiano.com/antioquia/accidentes-variante-a-caldas-medellin-MF35659335"
   },
   {
     id: "fb-2",
     titulo: "Un motociclista y un peatón muertos en trágicos accidentes de tránsito en Medellín",
-    descripcion: "La ciudad sumó nuevas fatalidades viales tras reportarse dos fuertes impactos durante la madrugada. El primer suceso ocurrió a la altura de la calle 44 con 80 en el puente elevated de San Juan, donde un joven de 18 años perdió el control.",
-    imagen: imgSanJuan, 
+    descripcion: "La ciudad sumó nuevas fatalidades viales tras reportarse dos fuertes impactos durante la madrugada...",
+    imagen: imgSanJuan,
     tipo_alerta_display: "Crítico",
     url: "https://qhubomedellin.com/actualidad/movilidad/un-motociclista-y-un-peaton-muertos-en-accidentes-de-transito-en-medellin-HH34002140"
   },
   {
     id: "fb-3",
     titulo: "Una persona murió tras choque de camioneta contra una caseta en el Túnel de Oriente",
-    descripcion: "Un trágico accidente de tránsito se registró en la mañana de este jueves en el Túnel de Oriente, que conecta a Medellín con el Oriente antioqueño, dejando como saldo una persona fallecida y congestión vehicular en el sector.",
-    imagen: imgTunelOriente, 
+    descripcion: "Un trágico accidente de tránsito se registró en la mañana de este jueves en el Túnel de Oriente...",
+    imagen: imgTunelOriente,
     tipo_alerta_display: "Crítico",
     url: "https://www.elcolombiano.com/antioquia/una-persona-murio-tras-choque-de-camioneta-contra-una-caseta-en-el-tunel-de-oriente-GI36584222"
   }
@@ -59,37 +59,41 @@ function App() {
   const [zonasCriticas] = useState(mockZonasCriticas);
   const [infracciones] = useState(mockInfracciones);
   const [estadisticas, setEstadisticas] = useState({ total: 0, lesionados: 0, fatalidades: 0 });
-  
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
-  
   const [vista, setVista] = useState('mapa');
-
   const [searchCoords, setSearchCoords] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
-
-  // Estado del módulo Rutas Seguras
   const [routeResult, setRouteResult] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
-
   const [noticias, setNoticias] = useState(RESPALDO_NOTICIAS);
   const [loadingNoticias, setLoadingNoticias] = useState(true);
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
+  // Calcular estadísticas
+  useEffect(() => {
+    if (zonasCriticas && zonasCriticas.length > 0) {
+      const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
+      const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
+      const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
+      setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
+    }
+  }, [zonasCriticas]);
+
+  // Cargar noticias desde API externa (opcional)
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
         const response = await fetch('https://newsapi.org/v2/top-headlines?country=co&category=general&apiKey=TU_API_KEY_AQUI');
         if (!response.ok) throw new Error("Error en servidor externo");
         const data = await response.json();
-        
         if (data.articles && data.articles.length > 0) {
           const noticiasFormateadas = data.articles.slice(0, 5).map((article, index) => ({
             id: `api-${index}`,
             titulo: article.title || "Reporte de Tránsito Local",
-            descripcion: article.description || "Revise las conditions de la calzada e informes oficiales de movilidad en el enlace adjunto.",
+            descripcion: article.description || "Revise las condiciones de la calzada e informes oficiales de movilidad en el enlace adjunto.",
             imagen: article.urlToImage || RESPALDO_NOTICIAS[index % 3].imagen,
             tipo_alerta_display: index % 2 === 0 ? "Crítico" : "Reporte",
             url: article.url
@@ -104,47 +108,26 @@ function App() {
         setLoadingNoticias(false);
       }
     };
-
     fetchLiveNews();
   }, []);
 
+  // Carrusel automático
   useEffect(() => {
     if (isCarouselPaused || noticias.length === 0) return;
-
     const interval = setInterval(() => {
       setCurrentNewsIndex((prevIndex) => (prevIndex + 1) % noticias.length);
     }, 3000);
-
     return () => clearInterval(interval);
   }, [noticias, isCarouselPaused]);
 
-  useEffect(() => {
-    if (zonasCriticas && zonasCriticas.length > 0) {
-      const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
-      const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
-      const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
-      setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
-    }
-  }, [zonasCriticas]);
-
-  const handlePrevNews = (e) => {
-    e.stopPropagation();
-    setCurrentNewsIndex((prevIndex) => 
-      prevIndex === 0 ? noticias.length - 1 : prevIndex - 1
-    );
-  };
-
-  const handleNextNews = (e) => {
-    e.stopPropagation();
-    setCurrentNewsIndex((prevIndex) => (prevIndex + 1) % noticias.length);
-  };
-
-  const handleSearchAddress = (addr, coords) => {
+  // Manejador para recibir dirección desde el asistente IA
+ const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
     setVista('mapa');
   };
 
+  // Manejador para rutas seguras
   const handleCalculateRoute = async (origen, destino, modoLluvias) => {
     setRouteLoading(true);
     setRouteError(null);
@@ -164,10 +147,21 @@ function App() {
     }
   };
 
-  return (
+  const handlePrevNews = (e) => {
+    e.stopPropagation();
+    setCurrentNewsIndex((prev) => (prev === 0 ? noticias.length - 1 : prev - 1));
+  };
+
+  const handleNextNews = (e) => {
+    e.stopPropagation();
+    setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
+  };
+
+    return (
     <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
       <Navbar />
 
+      {/* Selector de vistas */}
       <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4 flex-wrap">
         <button 
           onClick={() => setVista('mapa')}
@@ -177,33 +171,17 @@ function App() {
         >
           🗺️ Mapa Predictivo IA
         </button>
-        <button 
-          onClick={() => setVista('estadisticas')}
-          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-          }`}
-        >
-          📊 Panel de Estadísticas & Reportes
-        </button>
-        <button 
-          onClick={() => setVista('rutas')}
-          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-          }`}
-        >
-          🛡️ Rutas Seguras
-        </button>
+        <button onClick={() => setVista('mapa')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'mapa' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🗺️ Mapa Predictivo IA</button>
+        <button onClick={() => setVista('estadisticas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>📊 Panel de Estadísticas & Reportes</button>
+        <button onClick={() => setVista('rutas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🛡️ Rutas Seguras</button>
       </div>
 
-      <main className="flex-1 container mx-auto p-4 space-y-8">
+      <main className="flex-1 container mx-auto p-4">
         {vista === 'mapa' ? (
-          <div className="grid grid-cols-1 text-black lg:grid-cols-3 gap-6 h-[75vh]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
             <div className="lg:col-span-2 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
               <MapSection 
-                onAddressSelect={(addr, pred) => {
-                  setSelectedAddress(addr);
-                  setPrediction(pred);
-                }}
+                onAddressSelect={(addr, pred) => { setSelectedAddress(addr); setPrediction(pred); }}
                 zonasCriticas={zonasCriticas}
                 estadisticas={estadisticas}
                 searchCoords={searchCoords}
@@ -226,13 +204,11 @@ function App() {
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
               <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
             </div>
-
             {routeError && (
               <div className="bg-rose-900/40 border border-rose-700 rounded-xl p-4 text-rose-300 text-sm">
                 {routeError}
               </div>
             )}
-
             {routeResult && (
               <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
                 <SafeRouteResult
@@ -272,24 +248,24 @@ function App() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-700 text-black text-sm uppercase tracking-wider">
-                      <th className="p-3 text-white font-semibold rounded-l-lg">Sector Geográfico</th>
-                      <th className="p-3 text-white font-semibold">Accidentes</th>
-                      <th className="p-3 text-white font-semibold">Lesionados</th>
-                      <th className="p-3 text-white font-semibold">Fatalidades</th>
-                      <th className="p-3 text-white font-semibold text-center">Riesgo Predictivo</th>
-                      <th className="p-3 text-white font-semibold text-center rounded-r-lg">Acción</th>
+                    <tr className="bg-slate-700 text-gray-100 text-sm uppercase tracking-wider">
+                      <th className="p-3 rounded-l-lg">Sector Geográfico</th>
+                      <th className="p-3">Accidentes</th>
+                      <th className="p-3">Lesionados</th>
+                      <th className="p-3">Fatalidades</th>
+                      <th className="p-3 text-center">Riesgo Predictivo</th>
+                      <th className="p-3 text-center rounded-r-lg">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-600 text-sm">
                     {zonasCriticas.map((zona) => (
                       <tr key={zona.id} className="hover:bg-slate-700/70 transition-colors">
-                        <td className="p-3 text-white font-semibold">{zona.sector_geografico || zona.nombre}</td>
-                        <td className="p-3 text-red-700 font-bold">{zona.total_accidentes || 0}</td>
-                        <td className="p-3 text-amber-700 font-bold">{zona.total_lesionados || 0}</td>
-                        <td className="p-3 text-white-800 font-bold">{zona.total_fatalidades || 0}</td>
+                        <td className="p-3 text-gray-100 font-semibold">{zona.sector_geografico || zona.nombre}</td>
+                        <td className="p-3 text-rose-400 font-bold">{zona.total_accidentes || 0}</td>
+                        <td className="p-3 text-amber-400 font-bold">{zona.total_lesionados || 0}</td>
+                        <td className="p-3 text-gray-400 font-bold">{zona.total_fatalidades || 0}</td>
                         <td className="p-3 text-center">
-                          <span className="bg-slate-200 px-3 py-1 rounded-full text-black font-mono font-bold border border-slate-400 shadow-sm">
+                          <span className="bg-slate-900 px-3 py-1 rounded-full text-amber-400 font-mono font-bold border border-slate-600">
                             {zona.nivel_riesgo_predictivo || 0}%
                           </span>
                         </td>
@@ -308,27 +284,19 @@ function App() {
               </div>
             </div>
 
-            {/* 3. Carrusel de Noticias - Arreglado con Botones Glassmorphism estrictamente en la Imagen */}
+            {/* Carrusel de Noticias */}
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  📰 Siniestros e Información Vial (Última Hora)
-                </h2>
-                {loadingNoticias && (
-                  <span className="text-xs text-amber-400 animate-pulse">Sincronizando...</span>
-                )}
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">📰 Siniestros e Información Vial (Última Hora)</h2>
+                {loadingNoticias && <span className="text-xs text-amber-400 animate-pulse">Sincronizando...</span>}
               </div>
-
               {noticias.length > 0 ? (
                 <div 
                   className="bg-slate-900 rounded-xl border border-slate-700 flex flex-col md:flex-row transition-all duration-500 hover:border-slate-500"
                   onMouseEnter={() => setIsCarouselPaused(true)}
                   onMouseLeave={() => setIsCarouselPaused(false)}
                 >
-                  {/* CONTENEDOR DE LA IMAGEN CON AMBOS BOTONES DE FORMA LOCAL */}
                   <div className="w-full md:w-1/3 h-48 md:h-64 overflow-hidden relative group">
-                    
-                    {/* BOTÓN ANTERIOR (Flota a la izquierda de la imagen) */}
                     <button 
                       onClick={handlePrevNews}
                       className="absolute left-3 top-1/2 -translate-y-1/2 z-40 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-sm font-bold"
@@ -336,8 +304,6 @@ function App() {
                     >
                       ◀
                     </button>
-
-                    {/* BOTÓN SIGUIENTE (Flota a la derecha de la imagen) */}
                     <button 
                       onClick={handleNextNews}
                       className="absolute right-3 top-1/2 -translate-y-1/2 z-40 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-sm font-bold"
@@ -345,13 +311,11 @@ function App() {
                     >
                       ▶
                     </button>
-
                     <img 
                       src={noticias[currentNewsIndex].imagen} 
                       alt="Registro de movilidad"
                       className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                     />
-                    
                     <span className={`absolute top-3 left-3 text-xs px-2 py-1 rounded font-bold shadow z-30 ${
                       noticias[currentNewsIndex].tipo_alerta_display === 'Crítico' 
                         ? 'bg-rose-600 text-white' 
@@ -360,8 +324,6 @@ function App() {
                       {noticias[currentNewsIndex].tipo_alerta_display}
                     </span>
                   </div>
-
-                  {/* Bloque Contenido de Texto */}
                   <div className="p-6 flex flex-col justify-between flex-1">
                     <div>
                       <h3 className="font-bold text-xl text-amber-400 mb-3 line-clamp-2">
@@ -371,7 +333,6 @@ function App() {
                         {noticias[currentNewsIndex].descripcion}
                       </p>
                     </div>
-
                     <div className="pt-4 border-t border-slate-800 flex justify-between items-center mt-4">
                       <a 
                         href={noticias[currentNewsIndex].url}

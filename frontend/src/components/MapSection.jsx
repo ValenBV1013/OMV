@@ -14,55 +14,34 @@ L.Icon.Default.mergeOptions({
 
 const API_URL = 'http://localhost:8000/api';
 
-// ============================================================
-// DATOS HISTÓRICOS SIMULADOS (últimos 4 trimestres)
-// En producción, estos datos vendrían del backend
-// ============================================================
-const historicoPorSector = {
-  1: [38, 42, 45, 40],
-  2: [30, 35, 32, 38],
-  3: [20, 22, 25, 28],
-};
-
-/**
- * Calcula si un sector es Zona Crítica según RN 1.2.1
- */
+// Datos históricos (mock)
+const historicoPorSector = { 1: [38,42,45,40], 2: [30,35,32,38], 3: [20,22,25,28] };
 const calcularRiesgo = (sector) => {
-  const historico = historicoPorSector[sector.id] || [0, 0, 0, 0];
-  const mediaHistorica = historico.reduce((a, b) => a + b, 0) / historico.length;
-  const umbralCritico = mediaHistorica * 1.25;
-  const accidentesActual = sector.total_accidentes || 0;
-  const esCritico = accidentesActual > umbralCritico;
-  const porcentajeExceso = esCritico ? ((accidentesActual - umbralCritico) / umbralCritico) * 100 : 0;
-  return {
-    esCritico,
-    mediaHistorica: mediaHistorica.toFixed(1),
-    umbralCritico: umbralCritico.toFixed(1),
-    porcentajeExceso: porcentajeExceso.toFixed(1),
-  };
+  if (!sector) return { esCritico: false };
+  const historico = historicoPorSector[sector.id] || [0,0,0,0];
+  const media = historico.reduce((a,b)=>a+b,0)/historico.length;
+  const umbral = media * 1.25;
+  const esCritico = sector.total_accidentes > umbral;
+  return { esCritico, mediaHistorica: media.toFixed(1), umbralCritico: umbral.toFixed(1), porcentajeExceso: esCritico ? ((sector.total_accidentes - umbral)/umbral*100).toFixed(1) : 0 };
 };
 
-function MapSection({ 
-  onAddressSelect, 
-  zonasCriticas = [], 
-  estadisticas = {}, 
-  searchCoords = null, 
-  searchAddress = '', 
-  onClearSearch = null 
-}) {
+function MapSection({ onAddressSelect, zonasCriticas = [], estadisticas = {}, searchCoords = null, searchAddress = '', onClearSearch = null }) {
   const [heatmapData, setHeatmapData] = useState([]);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const mapRef = useRef(null);
 
-  // Cargar heatmap (simulado desde backend)
+  // Cargar heatmap
   useEffect(() => {
     const fetchHeatmap = async () => {
       try {
         const res = await axios.get(`${API_URL}/heatmap/`);
         setHeatmapData(res.data);
       } catch (error) {
-        console.error('Error heatmap:', error);
+        console.error('Heatmap error, usando datos locales:', error);
+        // Datos locales de ejemplo (círculos alrededor de Medellín)
+        const mockHeat = [[6.2476,-75.5658,0.8],[6.255,-75.57,0.6],[6.24,-75.56,0.7]];
+        setHeatmapData(mockHeat);
       }
     };
     fetchHeatmap();
@@ -70,23 +49,23 @@ function MapSection({
     return () => clearInterval(interval);
   }, []);
 
-  // Centrar mapa cuando se recibe una dirección desde el asistente IA
+  // Cuando se recibe una búsqueda de dirección
   useEffect(() => {
     if (searchCoords && mapRef.current) {
+      // Centrar mapa
       mapRef.current.flyTo([searchCoords.lat, searchCoords.lng], 15);
       setSelectedPosition([searchCoords.lat, searchCoords.lng]);
-      
-      const fetchPredictionForAddress = async () => {
+
+      // Obtener predicción para esa coordenada
+      const fetchPrediction = async () => {
         try {
           const res = await axios.post(`${API_URL}/predict/`, {
             sector_id: 1,
             address: searchAddress
           });
-          const zonaCritica = zonasCriticas.find(zona => {
-            const dist = Math.sqrt(
-              Math.pow((zona.latitud || 0) - searchCoords.lat, 2) +
-              Math.pow((zona.longitud || 0) - searchCoords.lng, 2)
-            );
+          // Verificar zona crítica cercana
+          const zonaCritica = zonasCriticas.find(z => {
+            const dist = Math.hypot(z.latitud - searchCoords.lat, z.longitud - searchCoords.lng);
             return dist < 0.01;
           });
           if (zonaCritica) {
@@ -94,18 +73,25 @@ function MapSection({
             res.data.nivel_riesgo = zonaCritica.nivel_riesgo;
             const riesgo = calcularRiesgo(zonaCritica);
             res.data.riesgo_critico = riesgo.esCritico;
-            res.data.media_historica = riesgo.mediaHistorica;
-            res.data.umbral_critico = riesgo.umbralCritico;
             res.data.exceso_porcentaje = riesgo.porcentajeExceso;
           }
           setPrediction(res.data);
           onAddressSelect(searchAddress, res.data);
         } catch (error) {
-          console.error('Error en predicción automática:', error);
+          console.error('Error predicción automática, usando mock:', error);
+          // Respuesta mock para demostración
+          const mockPred = {
+            estado: "CONGESTIÓN MODERADA",
+            probabilidad: 0.65,
+            ventana: "2 horas",
+            factores: "clima nublado, hora punta",
+            recomendacion: "Precaución, posible tráfico moderado"
+          };
+          setPrediction(mockPred);
+          onAddressSelect(searchAddress, mockPred);
         }
       };
-      fetchPredictionForAddress();
-      
+      fetchPrediction();
       if (onClearSearch) onClearSearch();
     }
   }, [searchCoords, searchAddress, zonasCriticas, onAddressSelect, onClearSearch]);
@@ -115,152 +101,115 @@ function MapSection({
     useMapEvents({
       async click(e) {
         const { lat, lng } = e.latlng;
-        const address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        const address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         setSelectedPosition([lat, lng]);
         try {
-          const res = await axios.post(`${API_URL}/predict/`, {
-            sector_id: 1,
-            address: address,
-          });
-          const zonaCritica = zonasCriticas.find((zona) => {
-            const dist = Math.sqrt(
-              Math.pow((zona.latitud || 0) - lat, 2) +
-              Math.pow((zona.longitud || 0) - lng, 2)
-            );
-            return dist < 0.01;
-          });
+          const res = await axios.post(`${API_URL}/predict/`, { sector_id: 1, address });
+          const zonaCritica = zonasCriticas.find(z => Math.hypot(z.latitud - lat, z.longitud - lng) < 0.01);
           if (zonaCritica) {
             res.data.zona_critica = zonaCritica.nombre || zonaCritica.sector_geografico;
             res.data.nivel_riesgo = zonaCritica.nivel_riesgo;
             const riesgo = calcularRiesgo(zonaCritica);
             res.data.riesgo_critico = riesgo.esCritico;
-            res.data.media_historica = riesgo.mediaHistorica;
-            res.data.umbral_critico = riesgo.umbralCritico;
             res.data.exceso_porcentaje = riesgo.porcentajeExceso;
           }
           setPrediction(res.data);
           onAddressSelect(address, res.data);
         } catch (error) {
-          console.error('Error predicción:', error);
+          console.error('Error en click, usando mock:', error);
+          const mockPred = {
+            estado: "LIBRE",
+            probabilidad: 0.2,
+            ventana: "4 horas",
+            factores: "clima soleado, hora normal",
+            recomendacion: "Tránsito normal"
+          };
+          setPrediction(mockPred);
+          onAddressSelect(address, mockPred);
         }
-      },
+      }
     });
     return null;
   }
 
   const getMarkerStyle = (zona) => {
     const riesgo = calcularRiesgo(zona);
-    if (riesgo.esCritico) {
-      return { color: '#B91C1C', size: 46, pulsante: true };
-    }
-    if (zona.nivel_riesgo === 'Alto') return { color: '#EF4444', size: 38, pulsante: false };
-    if (zona.nivel_riesgo === 'Medio') return { color: '#EAB308', size: 32, pulsante: false };
-    return { color: '#10B981', size: 28, pulsante: false };
+    if (riesgo.esCritico) return { color: '#B91C1C', size: 46 };
+    if (zona.nivel_riesgo === 'Alto') return { color: '#EF4444', size: 38 };
+    if (zona.nivel_riesgo === 'Medio') return { color: '#EAB308', size: 32 };
+    return { color: '#10B981', size: 28 };
   };
 
   return (
-    <MapContainer
-      ref={mapRef}
-      center={[6.2476, -75.5658]}
-      zoom={12}
-      style={{ height: '100%', width: '100%' }}
-      className="rounded-lg"
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      />
-
-      {/* Círculos de calor */}
+    <MapContainer ref={mapRef} center={[6.2476, -75.5658]} zoom={12} style={{ height: '100%', width: '100%' }} className="rounded-lg">
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
       {heatmapData.map((point, idx) => (
-        <Circle
-          key={idx}
-          center={[point[0], point[1]]}
-          radius={80}
-          pathOptions={{
-            fillColor: `rgba(255, ${Math.floor(100 * (1 - point[2]))}, 0, ${0.3 + point[2] * 0.5})`,
-            fillOpacity: 0.6,
-            color: `rgba(255, ${Math.floor(150 * (1 - point[2]))}, 0, 0.9)`,
-            weight: 1.5,
-          }}
-        />
+        <Circle key={idx} center={[point[0], point[1]]} radius={80} pathOptions={{
+          fillColor: `rgba(255, ${Math.floor(100*(1-point[2]))}, 0, ${0.3+point[2]*0.5})`,
+          fillOpacity: 0.6, color: `rgba(255, ${Math.floor(150*(1-point[2]))}, 0, 0.9)`, weight: 1.5
+        }} />
       ))}
-
-      {/* Marcadores de zonas de riesgo */}
-      {zonasCriticas.map((zona) => {
-        const { color, size, pulsante } = getMarkerStyle(zona);
+      {zonasCriticas.map(zona => {
+        const { color, size } = getMarkerStyle(zona);
         const riesgo = calcularRiesgo(zona);
         return (
-          <Marker
-            key={zona.id}
-            position={[zona.latitud, zona.longitud]}
-            icon={L.divIcon({
-              html: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="3" fill="white"/></svg>`,
-              className: `custom-marker ${pulsante ? 'pulsante' : ''}`,
-              iconSize: [size, size],
-              iconAnchor: [size / 2, size],
-            })}
-          >
-            <Popup>
-              <div className="p-2 min-w-[240px]">
-                <h3 className="font-bold text-gray-800">{zona.nombre || zona.sector_geografico}</h3>
-                <p className="text-sm text-red-600">Nivel de riesgo: {zona.nivel_riesgo}</p>
-                <p>🚗 Accidentes actuales: <strong>{zona.total_accidentes}</strong></p>
-                <p>📊 Media histórica (4 trimestres): {riesgo.mediaHistorica}</p>
-                <p>⚠️ Umbral crítico (+25%): {riesgo.umbralCritico}</p>
-                {riesgo.esCritico && (
-                  <div className="mt-2 p-2 bg-red-100 border border-red-500 rounded">
-                    <span className="font-bold text-red-700">🔴 ZONA CRÍTICA ACTIVA</span><br />
-                    Excede el umbral en <strong>{riesgo.porcentajeExceso}%</strong>
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-2">
-                  🚑 Lesionados: {zona.total_lesionados} | ⚰️ Fatalidades: {zona.total_fatalidades}
-                </p>
-              </div>
-            </Popup>
+          <Marker key={zona.id} position={[zona.latitud, zona.longitud]} icon={L.divIcon({
+            html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="3" fill="white"/></svg>`,
+            iconSize: [size, size], iconAnchor: [size/2, size]
+          })}>
+            <Popup><div><strong>{zona.nombre}</strong><br/>Riesgo: {zona.nivel_riesgo}<br/>Accidentes: {zona.total_accidentes}<br/>Media histórica: {riesgo.mediaHistorica}<br/>Crítica: {riesgo.esCritico ? 'Sí' : 'No'}</div></Popup>
           </Marker>
         );
       })}
-
-      {/* Marcador del punto seleccionado (clic o búsqueda) */}
       {selectedPosition && prediction && (
         <Marker position={selectedPosition}>
           <Popup>
-            <div className="p-2">
-              <strong>📍 Ubicación seleccionada</strong><br />
-              Estado: {prediction.estado}<br />
-              Prob: {(prediction.probabilidad * 100).toFixed(0)}%<br />
-              {prediction.zona_critica && (
-                <>
-                  <span className="text-red-600 font-bold">⚠️ {prediction.zona_critica}</span>
-                  {prediction.riesgo_critico && (
-                    <div className="text-xs mt-1">
-                      Excede media histórica en {prediction.exceso_porcentaje}%
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            <strong>📍 Ubicación</strong><br/>
+            Estado: {prediction.estado}<br/>
+            Probabilidad: {(prediction.probabilidad*100).toFixed(0)}%<br/>
+            Ventana: {prediction.ventana}<br/>
+            Factores: {prediction.factores}<br/>
+            {prediction.zona_critica && <span className="text-red-600">⚠️ Zona crítica: {prediction.zona_critica}</span>}
           </Popup>
         </Marker>
       )}
-
       <MapClickHandler />
 
-      {/* Leyenda */}
-      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 z-[1000] text-xs space-y-1">
-        <div className="font-bold mb-1">🚦 Intensidad Tráfico</div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-500 rounded-full"></div> Alta (&gt;70%)</div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-400 rounded-full"></div> Media (40-70%)</div>
-        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div> Baja (&lt;40%)</div>
-        <hr className="my-1" />
-        <div className="font-bold mt-1">⚠️ Riesgo Vial (RF 1.2.1)</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-800 rounded-full animate-pulse"></div> Zona Crítica (supera +25% media)</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-500 rounded-full"></div> Riesgo Alto</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded-full"></div> Riesgo Medio</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded-full"></div> Riesgo Bajo</div>
-      </div>
+      {/* Leyenda profesional sin emojis */}
+<div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur rounded-lg p-3 shadow-lg z-[1000] text-xs space-y-1">
+  <div className="font-bold text-gray-800">Intensidad de Tráfico</div>
+  <div className="flex items-center gap-2">
+    <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+    <span>Alta (&gt;70%)</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="w-3 h-3 bg-orange-400 rounded-full"></span>
+    <span>Media (40-70%)</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+    <span>Baja (&lt;40%)</span>
+  </div>
+  <hr className="my-1" />
+  <div className="font-bold text-gray-800">Riesgo Vial</div>
+  <div className="flex items-center gap-2">
+    <span className="w-4 h-4 bg-red-800 rounded-full animate-pulse"></span>
+    <span>Zona Crítica (&gt;+25% media)</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="w-4 h-4 bg-red-500 rounded-full"></span>
+    <span>Riesgo Alto</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="w-4 h-4 bg-yellow-500 rounded-full"></span>
+    <span>Riesgo Medio</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="w-4 h-4 bg-green-500 rounded-full"></span>
+    <span>Riesgo Bajo</span>
+  </div>
+</div>
+
     </MapContainer>
   );
 }

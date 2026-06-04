@@ -1,72 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, AlertCircle, MapPin, TrendingUp, HelpCircle, Route } from 'lucide-react';
+import { Send, Bot, User, AlertCircle, TrendingUp, HelpCircle, Route } from 'lucide-react';
 
 function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], onSearchAddress }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef(null);
+  const [ultimaOferta, setUltimaOferta] = useState(null); // guarda qué oferta se hizo (rutas u horarios)
 
-  // Geocodificación mejorada con Nominatim (OpenStreetMap)
   const geocodeAddress = async (direccion) => {
     try {
-      // Lista de ciudades colombianas para detectar si ya incluye ciudad
-      const ciudades = [
-        "bogotá", "medellín", "cali", "barranquilla", "cartagena", "bucaramanga",
-        "pereira", "manizales", "cúcuta", "ibagué", "neiva", "pasto", "valledupar",
-        "montería", "sincelejo", "riohacha", "santa marta", "villavicencio", "tunja", "armenia"
-      ];
-      const tieneCiudad = ciudades.some(ciudad => direccion.toLowerCase().includes(ciudad));
-      
-      let query = direccion;
-      if (!tieneCiudad) {
-        // Si no menciona ciudad, buscar primero en Medellín
-        query = `${direccion}, Medellín, Colombia`;
+      let query = direccion.trim();
+      if (!query.toLowerCase().includes('colombia')) {
+        query = `${query}, Colombia`;
       }
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`
-      );
-      const data = await response.json();
-      if (data && data.length > 0) {
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      }
-      
-      // Si no se encontró con Medellín y no tenía ciudad, intentar solo Colombia
-      if (!tieneCiudad) {
-        const fallbackResponse = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(direccion + ", Colombia")}&format=json&limit=1&countrycodes=co`
-        );
-        const fallbackData = await fallbackResponse.json();
-        if (fallbackData && fallbackData.length > 0) {
-          return { lat: parseFloat(fallbackData[0].lat), lng: parseFloat(fallbackData[0].lon) };
-        }
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'MovAI-App/1.0' } });
+      const data = await res.json();
+      if (data?.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(direccion)}&limit=1`;
+      const photonRes = await fetch(photonUrl);
+      const photonData = await photonRes.json();
+      if (photonData?.features?.length) {
+        const [lng, lat] = photonData.features[0].geometry.coordinates;
+        return { lat, lng };
       }
       return null;
     } catch (error) {
-      console.error("Error geocodificando:", error);
+      console.error("Geocoding error:", error);
       return null;
     }
-  };
-
-  // Nombres de vías en Medellín para simular rutas alternativas
-  const viasAlternativas = [
-    "Av. Regional", "Calle 30", "Av. Las Palmas", "Av. El Poblado",
-    "Carrera 43A", "Autopista Sur", "Calle 10", "Av. 80",
-    "Calle 44 (San Juan)", "Av. Oriental", "Carrera 50", "Transversal Inferior"
-  ];
-
-  const generarRutasAlternativas = (lat, lng, congestionProb) => {
-    const numRutas = Math.floor(Math.random() * 2) + 2;
-    const shuffled = [...viasAlternativas].sort(() => 0.5 - Math.random());
-    const rutas = shuffled.slice(0, numRutas);
-    const tiempoExtra = Math.floor(Math.random() * 15) + 5;
-    const nuevaProb = Math.max(0.1, congestionProb - 0.3 - Math.random() * 0.2);
-    return {
-      rutas,
-      tiempoExtra,
-      nuevaProbabilidad: Math.round(nuevaProb * 100)
-    };
   };
 
   useEffect(() => {
@@ -75,188 +38,132 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
 
   useEffect(() => {
     if (chatHistory.length === 0) {
-      setChatHistory([
-        {
-          role: 'assistant',
-          content: '¡Hola! Soy MovAI, tu asistente de movilidad inteligente. Puedo ayudarte con:\n\n• 🗺️ **Predicción de congestión** (haz clic en el mapa)\n• 🚗 **Rutas alternativas** (dime tu ubicación o selecciona un punto)\n• ⚠️ **Zonas críticas** de accidentalidad\n• 📰 **Noticias de incidentes** recientes\n• 📊 **Comparar riesgo** entre sectores\n• 🕒 **Mejores horarios** para conducir\n• 💰 **Fotomultas y costos**\n\n¿Qué necesitas?'
-        }
-      ]);
+      setChatHistory([{ role: 'assistant', content: 'Hola, soy MovAI. Puedo predecir congestión vehicular, sugerir rutas alternativas, identificar zonas críticas y leer noticias de siniestros viales. También ubico direcciones en Colombia. ¿En qué puedo ayudarle?' }]);
     }
   }, []);
 
-  // Procesar respuesta automática tras clic en mapa
+  // Respuesta automática al recibir predicción (clic o búsqueda)
   useEffect(() => {
     if (prediction && address && !chatHistory.some(msg => msg.address === address)) {
-      const getStatusEmoji = () => {
-        if (prediction.probabilidad > 0.7) return '🔴';
-        if (prediction.probabilidad > 0.4) return '🟡';
-        return '🟢';
-      };
-
+      const estado = prediction.estado;
+      const prob = (prediction.probabilidad * 100).toFixed(1);
+      const ventana = prediction.ventana;
+      const factores = prediction.factores;
+      const zonaCritica = prediction.zona_critica ? `\nAdvertencia: ${prediction.zona_critica} es una zona de alto riesgo de accidentalidad.` : '';
       const systemMsg = {
         role: 'system',
-        address: address,
-        content: `📍 **Ubicación:** ${address}\n\n${getStatusEmoji()} **Estado:** ${prediction.estado}\n📊 **Probabilidad:** ${(prediction.probabilidad * 100).toFixed(1)}%\n⏱️ **Ventana:** ${prediction.ventana}\n🔑 **Factores:** ${prediction.factores}\n💡 **Recomendación:** ${prediction.recomendacion}${prediction.zona_critica ? `\n\n⚠️ **Zona crítica:** ${prediction.zona_critica} (Nivel ${prediction.nivel_riesgo})` : ''}`
+        address,
+        content: `Ubicación: ${address}\n\nEstado actual: ${estado}\nProbabilidad de empeorar en las próximas ${ventana}: ${prob}%\nFactores: ${factores}${zonaCritica}`
       };
-      
       setChatHistory(prev => [...prev, systemMsg]);
-      
       setIsTyping(true);
       setTimeout(() => {
-        let advice = "";
+        let advice = '';
         if (prediction.probabilidad > 0.7) {
-          advice = `⚠️ **Alerta de congestión crítica**\n\nLa probabilidad de empeorar es del ${(prediction.probabilidad * 100).toFixed(0)}% en las próximas ${prediction.ventana}. ¿Quieres que calcule una ruta alternativa para evitar ese sector?`;
+          advice = `Alerta de congestión crítica (${prob}% de empeorar en ${ventana}). Recomiendo evitar esta zona o buscar rutas alternativas. ¿Necesita sugerencias?`;
+          setUltimaOferta('rutas');
         } else if (prediction.probabilidad > 0.4) {
-          advice = `🚗 **Precaución moderada**\n\nSe espera tráfico irregular. Recomiendo monitorear cada 15 minutos. ¿Necesitas rutas alternativas o quieres conocer los horarios de menor congestión?`;
+          advice = `Precaución: se espera tráfico irregular en las próximas ${ventana}. ¿Desea conocer los horarios de menor congestión o rutas alternativas?`;
+          setUltimaOferta('horarios');
         } else {
-          advice = `✅ **Vía fluida**\n\nNo hay riesgos de congestión por ahora. ¿Deseas guardar este trayecto como favorito o conocer zonas críticas cercanas?`;
+          advice = `Vía fluida por ahora. Si lo desea, puedo informarle sobre zonas críticas cercanas.`;
+          setUltimaOferta('zonas');
         }
-        
-        if (prediction.zona_critica) {
-          advice += `\n\n🔴 **Nota:** Esta es una zona crítica de accidentalidad. Ten precaución extrema.`;
-        }
+        if (prediction.zona_critica) advice += `\nNota: ${prediction.zona_critica} es zona de alto riesgo. Extreme precauciones.`;
         setChatHistory(prev => [...prev, { role: 'assistant', content: advice }]);
         setIsTyping(false);
       }, 1000);
     }
   }, [prediction, address]);
 
-  const extraerCoordenadas = (dir) => {
-    const match = dir.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
-    if (match) {
-      return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-    }
-    return null;
-  };
-
   const generarRespuesta = async (mensaje) => {
-    const lowerMsg = mensaje.toLowerCase();
+    const lower = mensaje.toLowerCase().trim();
     
-    // ========== NUEVO: BÚSQUEDA DE DIRECCIONES (calles, avenidas, carreras, etc.) ==========
-    // Patrón mejorado para capturar direcciones: calles, carreras, avenidas, números, etc.
-    const locationPattern = /^(muéstrame|ve a|busca|ir a|muestra|ubica|dirección|calle|carrera|av|avenida|autopista|transversal|diagonal|circular|kr|cra|cll)\s+(.+)/i;
-    if (locationPattern.test(lowerMsg)) {
-      const match = lowerMsg.match(locationPattern);
-      let direccion = match[2];
-      // Limpiar la dirección: eliminar palabras sobrantes como "en", "de", "la", "el", "los", "las"
-      direccion = direccion.replace(/^(en|de|la|el|los|las)\s+/i, '');
-      // Eliminar punto final si existe
-      direccion = direccion.replace(/\.$/, '');
-      
-      if (direccion && direccion.length > 3) {
+    // Detectar respuestas afirmativas a la última oferta
+    const afirmaciones = ['sí', 'si', 'ok', 'vale', 'claro', 'por favor', 'adelante', 'dale', 'acepto', 'si por favor'];
+    if (afirmaciones.includes(lower) && ultimaOferta) {
+      if (ultimaOferta === 'rutas') {
+        setUltimaOferta(null);
+        return `Rutas alternativas sugeridas desde ${address ? address.substring(0, 35) : 'el punto seleccionado'}...\n- Avenida Regional: +8 minutos, 35% de congestión.\n- Calle 30: +12 minutos, 28% de congestión.\n- Avenida Las Palmas: +15 minutos, 45% de congestión.\nLa opción más eficiente es la Avenida Regional. ¿Necesita más detalles?`;
+      } else if (ultimaOferta === 'horarios') {
+        setUltimaOferta(null);
+        return `Horarios de menor congestión en Medellín:\n- De 10:00 a 11:30 AM.\n- De 2:00 a 4:00 PM.\nEvite las horas punta: 7:00-9:00 AM y 5:00-7:00 PM. Los fines de semana el tráfico se reduce aproximadamente un 35% en avenidas principales. ¿Necesita rutas alternativas para ahora?`;
+      } else if (ultimaOferta === 'zonas') {
+        setUltimaOferta(null);
+        const lista = zonasCriticas.map(z => `- ${z.nombre}: riesgo ${z.nivel_riesgo}, ${z.total_accidentes} accidentes registrados.`).join('\n');
+        return `Zonas críticas identificadas en Medellín:\n${lista}\n¿Desea visualizar alguna en el mapa?`;
+      }
+    }
+
+    // Detectar dirección
+    const locationKeywords = ['muéstrame','ve a','busca','muestra','ubica','dirección','calle','carrera','av','avenida','autopista','transversal','diagonal','circular','kr','cra','cll','barrio','urbanización','conjunto','residencial','vereda','parque','estación','terminal'];
+    const match = mensaje.match(new RegExp(`^(${locationKeywords.join('|')})\\s+(.+)`, 'i'));
+    if (match) {
+      let direccion = match[2].replace(/^(en|de|la|el|los|las|del|al)\s+/i, '').replace(/\.$/, '');
+      if (direccion.length > 2) {
         const coords = await geocodeAddress(direccion);
         if (coords && onSearchAddress) {
           onSearchAddress(direccion, coords);
-          return `📍 **Mostrando "${direccion}" en el mapa.** He centrado la vista en esa ubicación. ¿Quieres que analice el tráfico allí?`;
-        } else {
-          return `❌ No pude encontrar "${direccion}" en Colombia. ¿Puedes ser más específico? Incluye ciudad si es fuera de Medellín, o intenta con un nombre más preciso.`;
+          return `Mostrando "${direccion}" en el mapa. Centrando vista y analizando tráfico en ese punto. Espere un momento.`;
         }
+        return `No se encontró "${direccion}" en Colombia. Intente con más detalles (ciudad, barrio o nomenclatura más precisa). Ejemplo: "calle 10 con carrera 43A, Bogotá".`;
       }
     }
 
-    // ========== RUTAS ALTERNATIVAS ==========
-    if (lowerMsg.match(/ruta alternativa|alternativa|evitar tráfico|cómo llegar|mejor ruta|desviar|otra vía/)) {
+    // Rutas alternativas (sin esperar afirmación previa)
+    if (lower.match(/ruta alternativa|alternativa|evitar tráfico|mejor ruta/)) {
       if (prediction && address) {
-        const coords = extraerCoordenadas(address);
-        const { rutas, tiempoExtra, nuevaProbabilidad } = generarRutasAlternativas(
-          coords?.lat || 6.2476, 
-          coords?.lng || -75.5658,
-          prediction.probabilidad
-        );
-        
-        let respuesta = `🔄 **Rutas alternativas para evitar la congestión**\n\n`;
-        respuesta += `📍 Desde ${address.substring(0, 35)}...\n\n`;
-        respuesta += `🚗 **Opciones sugeridas:**\n`;
-        rutas.forEach((r, idx) => {
-          respuesta += `${idx+1}. ${r} (desvío +${tiempoExtra - idx*2} min, congestión ${nuevaProbabilidad + idx*5}%)\n`;
-        });
-        respuesta += `\n⏱️ **Ahorro estimado:** ${tiempoExtra} minutos comparado con la ruta actual.\n`;
-        respuesta += `💡 **Consejo:** La mejor opción es la ruta ${rutas[0]}. ¿Quieres más detalles?`;
-        return respuesta;
-      } else {
-        return "🗺️ Para sugerirte rutas alternativas, primero haz clic en cualquier punto del mapa. Así podré analizar el tráfico en esa zona y ofrecerte desvíos personalizados.";
+        setUltimaOferta(null);
+        return `Rutas alternativas desde ${address.substring(0,35)}...\n- Avenida Regional: +8 min, 35% congestión.\n- Calle 30: +12 min, 28% congestión.\n- Avenida Las Palmas: +15 min, 45% congestión.\nLa mejor opción es la Avenida Regional. ¿Necesita más detalles?`;
       }
+      return `Para sugerir rutas alternativas, primero haga clic en el mapa sobre la ubicación de interés.`;
     }
-    
-    // ========== ESTADO DEL TRÁFICO ==========
-    if (lowerMsg.match(/cómo está el tráfico|estado del tráfico|congestión|qué tal el tráfico/)) {
+
+    // Estado del tráfico actual
+    if (lower.match(/cómo está el tráfico|estado del tráfico|congestión|tráfico ahora/)) {
       if (prediction) {
-        return `📊 **Estado del tráfico en ${address.substring(0, 40)}...**\n\n${prediction.estado} con ${(prediction.probabilidad*100).toFixed(0)}% de probabilidad de empeorar en ${prediction.ventana}. Factores: ${prediction.factores}.${prediction.zona_critica ? `\n\n⚠️ Es zona crítica: ${prediction.zona_critica}.` : ''}\n\n¿Necesitas rutas alternativas?`;
-      } else {
-        return "🔍 Aún no has seleccionado ninguna ubicación. Haz clic en el mapa para obtener el estado del tráfico en tiempo real.";
+        return `Informe de tráfico en ${address.substring(0,40)}:\n${prediction.estado}\nProbabilidad de empeorar en ${prediction.ventana}: ${(prediction.probabilidad*100).toFixed(0)}%\nFactores: ${prediction.factores}${prediction.zona_critica ? `\nAdemás, es una zona crítica.` : ''}`;
       }
+      return `Haga clic en el mapa para obtener el estado del tráfico en tiempo real.`;
     }
-    
-    // ========== ZONAS CRÍTICAS ==========
-    if (lowerMsg.match(/zona crítica|puntos críticos|accidentalidad|riesgo alto|sectores peligrosos/)) {
-      let zonaEspecifica = null;
-      for (let zona of zonasCriticas) {
-        if (lowerMsg.includes(zona.nombre?.toLowerCase()) || (zona.sector_geografico && lowerMsg.includes(zona.sector_geografico.toLowerCase().split(' ')[0]))) {
-          zonaEspecifica = zona;
-          break;
-        }
-      }
-      if (zonaEspecifica) {
-        return `⚠️ **${zonaEspecifica.nombre || zonaEspecifica.sector_geografico}**\n\n• Nivel de riesgo: ${zonaEspecifica.nivel_riesgo}\n• Accidentes últimos 12 meses: ${zonaEspecifica.total_accidentes}\n• Lesionados: ${zonaEspecifica.total_lesionados}\n• Fatalidades: ${zonaEspecifica.total_fatalidades}\n\n🚨 Recomendación: Evita esta zona entre 6:00-8:00 AM y 5:00-7:00 PM. ¿Quieres rutas alternativas para sortearla?`;
-      } else {
-        const lista = zonasCriticas.map(z => `• ${z.nombre || z.sector_geografico} (riesgo ${z.nivel_riesgo} - ${z.total_accidentes} accidentes)`).join('\n');
-        return `🚨 **Zonas críticas identificadas en Medellín:**\n\n${lista}\n\n¿Necesitas información detallada de alguna o rutas para evitarlas?`;
-      }
+
+    // Zonas críticas
+    if (lower.match(/zona crítica|puntos críticos|riesgo alto|accidentalidad/)) {
+      const lista = zonasCriticas.map(z => `- ${z.nombre}: riesgo ${z.nivel_riesgo}, ${z.total_accidentes} accidentes, ${z.total_fatalidades} fatalidades.`).join('\n');
+      return `Puntos críticos de accidentalidad en Medellín:\n${lista}\n¿Desea ver alguno en el mapa?`;
     }
-    
-    // ========== NOTICIAS ==========
-    if (lowerMsg.match(/noticias|incidentes|accidente|choque|siniestro|últimas noticias/)) {
-      let termino = '';
-      if (lowerMsg.includes('autopista')) termino = 'autopista';
-      if (lowerMsg.includes('poblado')) termino = 'poblado';
-      if (lowerMsg.includes('san juan')) termino = 'san juan';
-      const notis = noticias.filter(n => 
-        n.titulo.toLowerCase().includes(termino) || 
-        n.descripcion.toLowerCase().includes(termino)
-      ).slice(0, 3);
-      if (notis.length > 0) {
-        return `📰 **Últimas noticias de siniestros viales:**\n\n${notis.map(n => `• ${n.titulo} (${n.tipo_alerta_display})`).join('\n')}\n\n¿Quieres leer la descripción de alguna o saber cómo afecta el tráfico?`;
-      } else {
-        return "📭 No hay noticias recientes de incidentes en esa zona específica. Revisa el feed de noticias en el panel de estadísticas. ¿Quieres que te informe sobre zonas críticas cercanas?";
-      }
+
+    // Noticias
+    if (lower.match(/noticias|incidente|accidente|choque|siniestro/)) {
+      const notis = noticias.slice(0, 3);
+      return `Noticias recientes de siniestros viales:\n${notis.map(n => `- ${n.titulo} (${n.tipo_alerta_display})`).join('\n')}`;
     }
-    
-    // ========== COMPARACIÓN RIESGO ==========
-    if (lowerMsg.match(/comparar|más peligrosa|menos peligrosa|diferencia entre/)) {
-      const ordenadas = [...zonasCriticas].sort((a,b) => b.total_accidentes - a.total_accidentes);
-      return `📊 **Comparativa de riesgo vial:**\n\n🔴 **Más crítica:** ${ordenadas[0].nombre || ordenadas[0].sector_geografico} (${ordenadas[0].total_accidentes} accidentes, ${ordenadas[0].total_fatalidades} fatalidades)\n🟠 **Segunda:** ${ordenadas[1].nombre || ordenadas[1].sector_geografico} (${ordenadas[1].total_accidentes})\n🟡 **Menor riesgo:** ${ordenadas[ordenadas.length-1].nombre || ordenadas[ordenadas.length-1].sector_geografico} (${ordenadas[ordenadas.length-1].total_accidentes})\n\n¿Deseas rutas alternativas para evitar las más críticas?`;
+
+    // Horarios
+    if (lower.match(/mejor hora|menos tráfico|horario recomendado/)) {
+      setUltimaOferta(null);
+      return `Recomendaciones horarias:\n- Menos tráfico: 10:00-11:30 AM y 2:00-4:00 PM.\n- Evitar horas punta: 7:00-9:00 AM y 5:00-7:00 PM.\n- Fines de semana: reducción del 35% en avenidas principales.`;
     }
-    
-    // ========== HORARIOS RECOMENDADOS ==========
-    if (lowerMsg.match(/mejor hora|menos tráfico|cuándo evitar|horario recomendado/)) {
-      return "🕒 **Recomendaciones horarias para evitar congestión:**\n\n• **Menos tráfico:** 10:00 AM - 11:30 AM y 2:00 PM - 4:00 PM\n• **Evitar:** 7:00-9:00 AM y 5:00-7:00 PM (hora punta)\n• **Fines de semana:** tráfico reducido en un 35% en avenidas principales.\n\n¿Quieres sugerencias de rutas alternativas para hora punta?";
+
+    // Fotomultas
+    if (lower.match(/fotomulta|multa|infracción|comparendo/)) {
+      return `Infracciones comunes en Colombia y sus costos aproximados:\n- Exceso de velocidad: hasta $1.300.000 COP\n- Pasarse el semáforo en rojo: $1.300.000 COP\n- Violación de pico y placa: $650.000 COP\n- SOAT vencido: $1.300.000 COP`;
     }
-    
-    // ========== FOTOMULTAS ==========
-    if (lowerMsg.match(/fotomulta|multa|precio|costo|infracción|comparendo/)) {
-      return "📸 **Infracciones comunes en Medellín y sus costos:**\n\n• **Exceso de velocidad:** hasta $1.300.000 COP\n• **Pasarse el semáforo en rojo:** $1.300.000 COP\n• **Pico y placa:** $650.000 COP\n• **SOAT vencido:** $1.300.000 COP\n\nConsulta el detalle en la sección de 'Fotomultas & Costos' debajo del mapa. ¿Te interesa saber las zonas con más cámaras?";
+
+    // Ayuda o saludo
+    if (lower.match(/hola|ayuda|qué puedes hacer|comandos/)) {
+      return `Comandos disponibles:\n- "estado del tráfico" (después de hacer clic en el mapa)\n- "rutas alternativas"\n- "zonas críticas"\n- "noticias"\n- "muéstrame [dirección]" (ej: "barrio Laureles, Medellín")\n- "horarios recomendados"\n- "fotomultas"\n- Responder "sí" a mis sugerencias.`;
     }
-    
-    // ========== SALUDOS Y AYUDA ==========
-    if (lowerMsg.match(/hola|buenas|qué hubo|saludos|hey|hi|ayuda|qué puedes hacer|comandos|funciones/)) {
-      const ayudas = [
-        "🤖 **Mis capacidades:**\n\n• Predecir congestión en un punto (haz clic en el mapa)\n• Sugerir rutas alternativas dinámicas\n• Identificar zonas críticas de accidentalidad\n• Mostrar noticias de incidentes recientes\n• Comparar niveles de riesgo entre sectores\n• Recomendar mejores horarios para conducir\n• Informar sobre fotomultas y costos\n\n¿Qué deseas consultar?",
-        "¡Hola! Estoy aquí para ayudarte con la movilidad. Puedes preguntarme:\n- 'Rutas alternativas' (si ya seleccionaste un punto)\n- 'Estado del tráfico en [ubicación]'\n- 'Zonas críticas'\n- 'Noticias de accidentes'\n- 'Compara riesgo entre Autopista Norte y San Juan'\n- 'Muéstrame la calle 10'\n- 'Busca carrera 43A'\n\n¿Qué necesitas?"
-      ];
-      return ayudas[Math.floor(Math.random() * ayudas.length)];
-    }
-    
-    return "No he entendido tu pregunta. Puedes consultarme sobre:\n\n• **Rutas alternativas** (primero haz clic en el mapa para indicar tu ubicación)\n• **Estado del tráfico**\n• **Zonas críticas**\n• **Noticias de incidentes**\n• **Comparativa de riesgo**\n• **Mejores horarios**\n• **Fotomultas**\n• **Mostrar una dirección** (ej: 'muéstrame la calle 10')\n\n¿Pruebas con alguna de esas opciones?";
+
+    return `No he entendido su pregunta. Puede consultar:\n- "estado del tráfico"\n- "zonas críticas"\n- "rutas alternativas"\n- "noticias"\n- "muéstrame la calle 10 en Bogotá"\n¿En qué más puedo ayudarle?`;
   };
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    
     const userMsg = { role: 'user', content: input };
     setChatHistory(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
-    
     setTimeout(async () => {
       const respuesta = await generarRespuesta(input);
       setChatHistory(prev => [...prev, { role: 'assistant', content: respuesta }]);
@@ -271,85 +178,38 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
           <Bot className="w-8 h-8" />
           <div>
             <h2 className="text-xl font-bold">MovAI Asistente</h2>
-            <p className="text-sm text-purple-200">Predicción de congestión 2-4h</p>
+            <p className="text-sm text-purple-200">Predicción de congestión (2-4h)</p>
           </div>
         </div>
       </div>
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {chatHistory.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            {msg.role !== 'user' && (
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-5 h-5" />
-              </div>
-            )}
-            <div
-              className={`max-w-[80%] rounded-lg p-3 ${
-                msg.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : msg.role === 'system'
-                  ? 'bg-gray-800 border-l-4 border-yellow-500 text-gray-200'
-                  : 'bg-gray-800 text-gray-200'
-              }`}
-            >
-              <div className="whitespace-pre-wrap text-sm">
-                {msg.content.split('\n').map((line, i) => (
-                  <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
-                ))}
-              </div>
+          <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role !== 'user' && <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center"><Bot className="w-5 h-5" /></div>}
+            <div className={`max-w-[80%] rounded-lg p-3 ${msg.role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}`}>
+              <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
             </div>
-            {msg.role === 'user' && (
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5" />
-              </div>
-            )}
+            {msg.role === 'user' && <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center"><User className="w-5 h-5" /></div>}
           </div>
         ))}
-        
         {isTyping && (
           <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <div className="bg-gray-800 rounded-lg p-3">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-              </div>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center"><Bot className="w-5 h-5" /></div>
+            <div className="bg-gray-800 rounded-lg p-3"><div className="flex gap-1"><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span></div></div>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
-
       <div className="border-t border-gray-700 p-4 bg-gray-800">
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ej: muéstrame la calle 10, ve a la carrera 43A, ubicar avenida Las Palmas, o busca Parque Lleras"
-            className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-4 py-2 transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Escriba su consulta aquí..." className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500" />
+          <button onClick={handleSend} disabled={!input.trim()} className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg px-4 py-2"><Send className="w-5 h-5" /></button>
         </div>
         <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-400">
-          <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Predicción 2-4h</span>
-          <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Alertas tempranas</span>
-          <span className="flex items-center gap-1"><Route className="w-3 h-3" /> Rutas alternativas</span>
-          <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Pregúntame</span>
+          <span><TrendingUp className="inline w-3 h-3" /> Predicción</span>
+          <span><AlertCircle className="inline w-3 h-3" /> Alertas</span>
+          <span><Route className="inline w-3 h-3" /> Rutas</span>
+          <span><HelpCircle className="inline w-3 h-3" /> Ayuda</span>
         </div>
       </div>
     </div>

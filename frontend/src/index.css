@@ -2,15 +2,22 @@
 
 @import 'leaflet/dist/leaflet.css';
 
-/* Estilos específicos para el mapa */
-.leaflet-container {
-  height: 100% !important;
-  width: 100% !important;
-  background-color: #ffffff;
+/* Eliminar fondo y borde de los iconos personalizados de Leaflet */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
 }
 
-/* Asegurar que el contenedor del mapa tiene altura */
-.map-container {
-  height: 100vh !important;
-  min-height: 500px !important;
+/* Clase específica para tus marcadores (si usas className='custom-marker') */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Para cualquier otro div dentro del mapa que pueda tener fondo */
+.leaflet-marker-icon {
+  background: transparent !important;
+  border: none !important;
 }
