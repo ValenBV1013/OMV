@@ -87,8 +87,7 @@ function App() {
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
-        const response = await fetch('https://newsapi.org/v2/top-headlines?country=co&category=general&apiKey=TU_API_KEY_AQUI');
-        if (!response.ok) throw new Error("Error en servidor externo");
+        const response = await fetch('https://newsapi.org/v2/top-headlines?country=co&category=general&apiKey=1312aa0f82e54b3ca5d885760c38036d');
         const data = await response.json();
         if (data.articles && data.articles.length > 0) {
           const noticiasFormateadas = data.articles.slice(0, 5).map((article, index) => ({
@@ -160,29 +159,19 @@ function App() {
 
     return (
     <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
-      <Navbar />
+      <Navbar setVista={setVista} />
 
       {/* Selector de vistas */}
       <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4 flex-wrap">
-        <button 
-          onClick={() => setVista('mapa')}
-          className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${
-            vista === 'mapa' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-          }`}
-        >
-          🗺️ Mapa Predictivo IA
-        </button>
-        <button onClick={() => setVista('mapa')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'mapa' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🗺️ Mapa Predictivo IA</button>
-        <button onClick={() => setVista('estadisticas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>📊 Panel de Estadísticas & Reportes</button>
-        <button onClick={() => setVista('rutas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🛡️ Rutas Seguras</button>
-        <button onClick={() => setVista('trafico')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'trafico' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚦 Tráfico IRL</button>
-        <button onClick={() => setVista('trafico')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'trafico' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚦 Tráfico IRL</button>
       </div>
 
-      <main className="flex-1 container mx-auto p-4">
+      <main className="flex-1 relative w-full overflow-hidden">
+
+        {/* ================= MÓDULO 1: MAPA PREDICTIVO ================= */}
         {vista === 'mapa' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
-            <div className="lg:col-span-2 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
+          <div className="relative w-full h-[calc(100vh-120px)] min-h-[500px]">
+            {/* EL MAPA DE FONDO: Ocupa el 100% */}
+            <div className="absolute inset-0 z-0">
               <MapSection 
                 onAddressSelect={(addr, pred) => { setSelectedAddress(addr); setPrediction(pred); }}
                 zonasCriticas={zonasCriticas}
@@ -192,18 +181,70 @@ function App() {
                 onClearSearch={() => setSearchCoords(null)}
               />
             </div>
-            <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl p-4">
-              <AIAssistant 
-                address={selectedAddress}
-                prediction={prediction}
-                zonasCriticas={zonasCriticas}
-                noticias={noticias}
-                onSearchAddress={handleSearchAddress}
-              />
+
+            {/* PANEL FLOTANTE DERECHO: Asistente IA (MovAI) */}
+            <div className="absolute top-4 right-4 bottom-20 z-10 w-96 flex flex-col pointer-events-auto">
+              <div className="flex-1 bg-slate-950/85 backdrop-blur-md border border-slate-700/70 rounded-xl shadow-2xl overflow-hidden flex flex-col p-4">
+                <AIAssistant 
+                  address={selectedAddress}
+                  prediction={prediction}
+                  zonasCriticas={zonasCriticas}
+                  noticias={noticias}
+                  onSearchAddress={handleSearchAddress}
+                />
+              </div>
+            </div>
+
+            {/* BARRA DE LEYENDA HORIZONTAL INFERIOR FLOTANTE */}
+            <div className="absolute bottom-4 left-4 right-104 z-10 bg-slate-950/90 backdrop-blur-md text-slate-300 rounded-xl px-5 py-3 shadow-2xl border border-slate-700/60 pointer-events-auto">
+              <div className="flex flex-wrap items-center justify-start gap-6 text-[11px] font-medium tracking-wide">
+                <div className="text-slate-500 font-bold tracking-widest uppercase border-r border-slate-800 pr-5">
+                  • LEYENDA
+                </div>
+                {/* Sección Tráfico */}
+                <div className="flex items-center gap-4 border-r border-slate-800 pr-5">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Tráfico</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-md shadow-red-500/30"></span>
+                    <span>Alta</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-md shadow-amber-500/30"></span>
+                    <span>Media</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-md shadow-emerald-500/30"></span>
+                    <span>Baja</span>
+                  </div>
+                </div>
+                {/* Sección Riesgo Vial */}
+                <div className="flex items-center gap-4">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Riesgo Vial</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-red-900 rounded-full border border-red-500/50 animate-pulse"></span>
+                    <span className="text-red-400 font-medium">Crítica</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                    <span>Alto</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
+                    <span>Medio</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                    <span>Bajo</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        ) : vista === 'rutas' ? (
+
+          
+        )  : vista === 'rutas' ? (
           <div className="max-w-2xl mx-auto space-y-6" id="rutas-seguras">
+            {/* ================= MÓDULO 2: RUTAS SEGURAS ================= */}
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
               <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
             </div>
@@ -227,6 +268,7 @@ function App() {
         ) : vista === 'trafico' ? (
           <div id="trafico-irl" className="h-full">
             <TrafficIRL />
+            {/* ================= MÓDULO 3: Tráfico IRL ================= */}
           </div>
         ) : (
           <div className="space-y-8">

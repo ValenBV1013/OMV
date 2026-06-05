@@ -1,18 +1,17 @@
 import React from 'react';
 import { Link2 } from 'lucide-react';
-// Importamos el logo desde la carpeta de assets
-import logoOMV from '../assets/logo_OMV.jpeg'; 
+import logoOMV from '../assets/logo_OMV.jpeg';
 
-const Navbar = () => {
+const Navbar = ({ setVista }) => {
   return (
     <header className="bg-slate-900 text-white p-4 sticky top-0 z-[9999] shadow-md">
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-        
-        {/* Contenedor del Logo y Título */}
+
+        {/* Logo y título */}
         <div className="flex items-center gap-3">
-          <img 
-            src={logoOMV} 
-            alt="Logo OMV" 
+          <img
+            src={logoOMV}
+            alt="Logo OMV"
             className="w-10 h-10 object-cover rounded-lg border border-slate-700 shadow-sm"
           />
           <h1 className="text-xl font-bold tracking-tight">
@@ -20,24 +19,48 @@ const Navbar = () => {
           </h1>
         </div>
 
-        {/* Navegación interna */}
+        {/* Navegación */}
         <nav className="flex gap-6 text-sm font-medium">
-          <a href="#mapa" className="hover:text-amber-400 transition">Mapa Crítico</a>
-          <a href="#noticias" className="hover:text-amber-400 transition">Histórico & Noticias</a>
-          <a href="#fotomultas" className="hover:text-amber-400 transition">Fotomultas & Costos</a>
-          <a href="#rutas-seguras" className="hover:text-amber-400 transition">Rutas Seguras</a>
-          <a href="#trafico-irl" className="hover:text-amber-400 transition">🚦 Tráfico IRL</a>
+          <button
+            onClick={() => setVista('mapa')}
+            className="hover:text-amber-400 transition"
+          >
+            Mapa Crítico
+          </button>
+
+          <button
+            onClick={() => setVista('estadisticas')}
+            className="hover:text-amber-400 transition"
+          >
+            Histórico & Noticias
+          </button>
+
+          <button
+            onClick={() => setVista('rutas')}
+            className="hover:text-amber-400 transition"
+          >
+            Rutas Seguras
+          </button>
+
+          <button
+            onClick={() => setVista('trafico')}
+            className="hover:text-amber-400 transition"
+          >
+            Tráfico IRL
+          </button>
         </nav>
 
-        {/* Botón de Fuente Oficial */}
-        <a 
-          href="https://www.medellin.gov.co/es/secretaria-de-movilidad/observatorio-de-movilidad/incidentes-y-victimas-por-hechos-de-transito/" 
-          target="_blank" 
+        {/* Fuente oficial */}
+        <a
+          href="https://www.medellin.gov.co/es/secretaria-de-movilidad/observatorio-de-movilidad/incidentes-y-victimas-por-hechos-de-transito/"
+          target="_blank"
           rel="noreferrer"
           className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow"
         >
-          <Link2 className="w-4 h-4" /> Fuente Oficial
+          <Link2 className="w-4 h-4" />
+          Fuente Oficial
         </a>
+
       </div>
     </header>
   );
