@@ -6,7 +6,7 @@ Monta todos los endpoints bajo /api/v1/
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from .views import ClimaViewSet, DashboardInitView, EstadisticaViewSet, GeoViewSet, RutaViewSet
+from .views import ClimaViewSet, DashboardInitView, EstadisticaViewSet, GeoViewSet, RutaViewSet, TraficoViewSet
 
 router = SimpleRouter(trailing_slash=False)
 
@@ -31,4 +31,9 @@ urlpatterns = [
 
     # Dashboard
     path("dashboard/init/", DashboardInitView.as_view(), name="dashboard_init"),
+
+    # Tráfico IRL (TomTom)
+    path("trafico/ruta", TraficoViewSet.as_view({"post": "ruta"}), name="trafico-ruta"),
+    path("trafico/incidentes", TraficoViewSet.as_view({"get": "incidentes"}), name="trafico-incidentes"),
+    path("trafico/flujo", TraficoViewSet.as_view({"get": "flujo"}), name="trafico-flujo"),
 ]

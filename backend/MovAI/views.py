@@ -11,7 +11,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import AlertaClima, EstadisticaAccidente, InfraestructuraFija, Navegacion, SegmentoVial, ZonaRiesgo
+from .models import AlertaClima, EstadisticaAccidente, FlujoVehicular, InfraestructuraFija, Navegacion, SegmentoVial, ZonaRiesgo
 from .serializers import (
     AlertaClimaSerializer,
     ClimaActualSerializer,
@@ -19,10 +19,12 @@ from .serializers import (
     EstadisticaAccidenteSerializer,
     NavegacionSerializer,
     RutaSeguraInputSerializer,
+    TraficoRutaInputSerializer,
     ZonaRiesgoSerializer,
 )
 from .services.geocode import geocode_direccion
 from .services.routing import get_safe_route
+from .services.traffic_engine import get_route_with_speed, get_traffic_incidents
 from .services.weather import fetch_current_weather
 
 logger = logging.getLogger(__name__)
@@ -399,3 +401,99 @@ class DashboardInitView(APIView):
             "type": "FeatureCollection",
             "features": features
         })
+
+
+# ═══════════════════════════════════════════════
+# MÓDULO: TRÁFICO IRL (TomTom Integration)
+# ═══════════════════════════════════════════════
+
+class TraficoViewSet(viewsets.ViewSet):
+    """Endpoint: /api/v1/trafico/ — Tráfico en tiempo real via TomTom"""
+
+    @action(detail=False, methods=["post"])
+    def ruta(self, request):
+        """
+        POST /api/v1/trafico/ruta/
+        Calcula una ruta considerando el tráfico actual.
+        """
+        serializer = TraficoRutaInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            logger.warning("Trafico ruta - input inválido: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+
+        logger.info(
+            "POST /api/v1/trafico/ruta - origen=%s destino=%s",
+            data["origen"][:80] if isinstance(data["origen"], str) else "coord",
+            data["destino"][:80] if isinstance(data["destino"], str) else "coord",
+        )
+
+        # Resolver direcciones a coordenadas
+        origen = _resolver_coordenadas(data["origen"], "origen")
+        destino = _resolver_coordenadas(data["destino"], "destino")
+
+        if not origen or not destino:
+            logger.error(
+                "No se pudo geocodificar: origen=%s destino=%s",
+                data["origen"], data["destino"],
+            )
+            return Response(
+                {"error": "No se pudo geocodificar la dirección. Verificá que la dirección exista en Medellín."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            resultado = get_route_with_speed(
+                origen["lat"], origen["lng"], destino["lat"], destino["lng"]
+            )
+        except Exception as e:
+            logger.exception("Error interno al calcular ruta Tráfico IRL")
+            return Response(
+                {"error": f"Error interno del servidor: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Si TomTom devolvió error, propagarlo al frontend
+        if "error" in resultado:
+            logger.error("TomTom devolvió error: %s", resultado["error"])
+
+        return Response(resultado)
+
+    @action(detail=False, methods=["get"])
+    def incidentes(self, request):
+        """
+        GET /api/v1/trafico/incidentes/
+        Obtiene incidentes de tráfico en el área de Medellín.
+        """
+        south = float(request.query_params.get("south", 6.13))
+        west = float(request.query_params.get("west", -75.70))
+        north = float(request.query_params.get("north", 6.35))
+        east = float(request.query_params.get("east", -75.50))
+        try:
+            incidentes_data = get_traffic_incidents(south, west, north, east)
+            return Response({"incidentes": incidentes_data, "count": len(incidentes_data)})
+        except Exception as e:
+            logger.exception("Error al obtener incidentes")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=["get"])
+    def flujo(self, request):
+        """
+        GET /api/v1/trafico/flujo/
+        Devuelve el historial de mediciones de flujo vehicular.
+        """
+        limit = int(request.query_params.get("limit", 50))
+        flujos = FlujoVehicular.objects.select_related("segmento").order_by("-timestamp")[:limit]
+        data = []
+        for f in flujos:
+            data.append({
+                "id": f.id,
+                "segmento": f.segmento.nombre if f.segmento else "Desconocido",
+                "volumen": f.volumen,
+                "velocidad_promedio": f.velocidad_promedio,
+                "congestionado": f.congestionado,
+                "timestamp": f.timestamp.isoformat(),
+            })
+        return Response({"flujos": data, "count": len(data)})

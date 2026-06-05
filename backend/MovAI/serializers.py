@@ -138,3 +138,37 @@ class ClimaActualSerializer(serializers.Serializer):
     icon = serializers.CharField()
     timestamp = serializers.CharField()
     alertas_activas = serializers.IntegerField()
+
+
+class TraficoRutaInputSerializer(serializers.Serializer):
+    """Validación del input para POST /api/v1/trafico/ruta/"""
+
+    origen = serializers.JSONField(
+        help_text='Dirección (string) o coordenadas {"lat": ..., "lng": ...}'
+    )
+    destino = serializers.JSONField(
+        help_text='Dirección (string) o coordenadas {"lat": ..., "lng": ...}'
+    )
+
+    def validate_origen(self, value):
+        return self._validar_punto(value, "origen")
+
+    def validate_destino(self, value):
+        return self._validar_punto(value, "destino")
+
+    def _validar_punto(self, value, campo):
+        if isinstance(value, dict):
+            if "lat" not in value or "lng" not in value:
+                raise serializers.ValidationError(
+                    f"{campo} debe contener 'lat' y 'lng'"
+                )
+        elif isinstance(value, str):
+            if len(value.strip()) < 3:
+                raise serializers.ValidationError(
+                    f"{campo} debe tener al menos 3 caracteres"
+                )
+        else:
+            raise serializers.ValidationError(
+                f"{campo} debe ser string u objeto con lat/lng"
+            )
+        return value

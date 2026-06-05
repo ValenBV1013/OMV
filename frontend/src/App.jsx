@@ -6,6 +6,7 @@ import FotomultasTable from './components/FotomultasTable';
 import AIAssistant from './components/AIAssistant';
 import SafeRouteForm from './components/SafeRouteForm';
 import SafeRouteResult from './components/SafeRouteResult';
+import TrafficIRL from './components/TrafficIRL';
 import { getSafeRoute } from './services/safeRoutesApi';
 
 // --- IMPORTACIÓN DE IMÁGENES PNG LOCALES ---
@@ -174,6 +175,8 @@ function App() {
         <button onClick={() => setVista('mapa')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'mapa' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🗺️ Mapa Predictivo IA</button>
         <button onClick={() => setVista('estadisticas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'estadisticas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>📊 Panel de Estadísticas & Reportes</button>
         <button onClick={() => setVista('rutas')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'rutas' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🛡️ Rutas Seguras</button>
+        <button onClick={() => setVista('trafico')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'trafico' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚦 Tráfico IRL</button>
+        <button onClick={() => setVista('trafico')} className={`px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${vista === 'trafico' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚦 Tráfico IRL</button>
       </div>
 
       <main className="flex-1 container mx-auto p-4">
@@ -220,6 +223,10 @@ function App() {
                 />
               </div>
             )}
+          </div>
+        ) : vista === 'trafico' ? (
+          <div id="trafico-irl" className="h-full">
+            <TrafficIRL />
           </div>
         ) : (
           <div className="space-y-8">
