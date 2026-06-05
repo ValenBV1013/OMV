@@ -26,6 +26,7 @@ const Navbar = () => {
           <a href="#noticias" className="hover:text-amber-400 transition">Histórico & Noticias</a>
           <a href="#fotomultas" className="hover:text-amber-400 transition">Fotomultas & Costos</a>
           <a href="#rutas-seguras" className="hover:text-amber-400 transition">Rutas Seguras</a>
+          <a href="#trafico-irl" className="hover:text-amber-400 transition">🚦 Tráfico IRL</a>
         </nav>
 
         {/* Botón de Fuente Oficial */}

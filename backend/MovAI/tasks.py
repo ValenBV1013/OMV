@@ -1,7 +1,6 @@
 """
 Tareas programadas.
-- APScheduler: polling periódico del clima y limpieza de alertas expiradas (Rutas Seguras)
-- Celery: actualización periódica de datos de tráfico (Infraestructura)
+Usa APScheduler para polling periódico del clima y del tráfico IRL.
 """
 
 import logging
@@ -9,6 +8,7 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.conf import settings
 
+from .services.traffic_engine import sample_medellin_traffic
 from .services.weather import desactivar_alertas_expiradas, poll_current_weather
 
 logger = logging.getLogger(__name__)
@@ -51,10 +51,24 @@ def start_scheduler():
         misfire_grace_time=120,
     )
 
+    # Monitoreo de tráfico cada 5 minutos
+    _traffic_interval = getattr(settings, "TRAFFIC_POLL_INTERVAL_MINUTES", 5)
+    _scheduler.add_job(
+        update_traffic_data,
+        trigger="interval",
+        minutes=_traffic_interval,
+        id="poll_traffic",
+        name="Monitorear tráfico IRL en 10 puntos fijos de Medellín",
+        replace_existing=True,
+        misfire_grace_time=60,
+    )
+
     _scheduler.start()
     logger.info(
-        "APScheduler iniciado: poll_weather cada %d min, cleanup_alerts cada 30 min",
+        "APScheduler iniciado: poll_weather cada %d min, "
+        "cleanup_alerts cada 30 min, poll_traffic cada %d min",
         getattr(settings, "OWM_POLL_INTERVAL_MINUTES", 10),
+        _traffic_interval,
     )
 
 
@@ -67,23 +81,24 @@ def stop_scheduler():
         logger.info("APScheduler detenido")
 
 
-# ═══════════════════════════════════════════════
-# Tareas Celery — Módulo de Tráfico
-# ═══════════════════════════════════════════════
+# ─────────────────────────────────────────────
+# Tareas individuales (llamadas por APScheduler)
+# ─────────────────────────────────────────────
 
-from celery import shared_task
-from .services.traffic_engine import fetch_mapgis_data, analyze_congestion
-
-@shared_task
 def update_traffic_data():
     """
-    Tarea periódica (cada 5 min) para consumir MapGIS
-    y actualizar el estado de congestión.
+    Consulta TomTom Traffic Flow API en 10 puntos fijos de Medellín
+    y actualiza estado de congestión en BD + WebSocket.
+    Se ejecuta cada 5 minutos vía APScheduler.
     """
-    # 1. Fetch GeoJSON from public MapGIS DB
-    geojson_data = fetch_mapgis_data()
-
-    # 2. Analyze Congestion & Dynamic Thresholds
-    analyze_congestion(geojson_data)
-
-    return "Traffic data updated and analyzed successfully."
+    try:
+        result = sample_medellin_traffic()
+        logger.info(
+            "Tráfico actualizado: %d puntos muestreados, %d congestionados",
+            result.get("total_muestreado", 0),
+            result.get("congestionados", 0),
+        )
+        return result
+    except Exception as e:
+        logger.exception("Error en update_traffic_data")
+        return {"error": str(e)}

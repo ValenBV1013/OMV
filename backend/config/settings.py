@@ -146,3 +146,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ─────────────────────────────────────────────
+# Tráfico IRL — Monitoreo periódico
+# ─────────────────────────────────────────────
+TRAFFIC_POLL_INTERVAL_MINUTES = 5
+
