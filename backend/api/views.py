@@ -1,8 +1,19 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from supabase import create_client, Client
+from django.conf import settings
 import random
 from datetime import datetime
 
+# ---------- CLIENTE SUPABASE (usando variables desde settings) ----------
+supabase: Client = create_client(
+    settings.SUPABASE_URL,
+    settings.SUPABASE_ANON_KEY
+)
+
+# ---------- TUS ENDPOINTS ORIGINALES ----------
 @api_view(['POST'])
 def predict_congestion(request):
     hora_actual = datetime.now().hour
@@ -61,3 +72,22 @@ def heatmap_data(request):
         ])
     
     return Response(heatmap_points)
+
+# ---------- NUEVO ENDPOINT PARA VALIDAR TOKEN ----------
+class ValidateTokenView(APIView):
+    def post(self, request):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return Response({'error': 'Token no proporcionado'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token = auth_header.split(' ')[1]
+        
+        try:
+            user = supabase.auth.get_user(token)
+            return Response({
+                'id': user.user.id,
+                'email': user.user.email,
+                'user_metadata': user.user.user_metadata
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
