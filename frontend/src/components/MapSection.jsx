@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios'; // Importación de la API corregida
+import axios from 'axios';
 
-// Reparar los paths estáticos de los iconos de Leaflet en entornos React/Vite
+// Reparar iconos de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -14,7 +14,7 @@ L.Icon.Default.mergeOptions({
 
 const API_URL = 'http://localhost:8000/api/v1';
 
-// Datos de control histórico para contingencias en Medellín si falla el backend
+// Datos de control histórico
 const historicoPorSector = { 1: [38, 42, 45, 40], 2: [30, 35, 32, 38], 3: [20, 22, 25, 28] };
 
 const calcularRiesgo = (sector) => {
@@ -31,28 +31,37 @@ const calcularRiesgo = (sector) => {
   };
 };
 
-// Cambiado a exportación por defecto para solucionar el error de App.jsx
+// Puntos por defecto para el heatmap (válidos)
+const defaultHeatmapPoints = [
+  [6.2476, -75.5658, 0.8],
+  [6.2550, -75.5700, 0.6],
+  [6.2400, -75.5600, 0.7]
+];
+
 export default function MapSection({ onAddressSelect, zonasCriticas = [], estadisticas = {}, searchCoords = null, searchAddress = '', onClearSearch = null }) {
-  const [heatmapData, setHeatmapData] = useState([]);
+  const [heatmapData, setHeatmapData] = useState(defaultHeatmapPoints);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const mapRef = useRef(null);
 
-  // 1. Carga inicial del mapa de calor con manejo robusto para evitar spam de 404
+  // 1. Carga del heatmap con validación robusta
   useEffect(() => {
     let isMounted = true;
     const fetchHeatmap = async () => {
       try {
         const res = await axios.get(`${API_URL}/geo/zonas-riesgo`);
-        if (isMounted && res.data && Array.isArray(res.data)) {
-          setHeatmapData(res.data);
-        } else if (isMounted) {
-          setHeatmapData([[6.2476, -75.5658, 0.8], [6.255, -75.57, 0.6], [6.24, -75.56, 0.7]]);
+        const data = res.data;
+        // Validar estructura correcta
+        if (Array.isArray(data) && data.every(point => 
+          Array.isArray(point) && point.length >= 2 && 
+          typeof point[0] === 'number' && typeof point[1] === 'number'
+        )) {
+          if (isMounted) setHeatmapData(data);
+        } else {
+          if (isMounted) setHeatmapData(defaultHeatmapPoints);
         }
       } catch (error) {
-        if (isMounted) {
-          setHeatmapData([[6.2476, -75.5658, 0.8], [6.255, -75.57, 0.6], [6.24, -75.56, 0.7]]);
-        }
+        if (isMounted) setHeatmapData(defaultHeatmapPoints);
       }
     };
     fetchHeatmap();
@@ -63,7 +72,7 @@ export default function MapSection({ onAddressSelect, zonasCriticas = [], estadi
     };
   }, []);
 
-  // 2. Escucha de búsquedas de direcciones del panel o asistente de IA
+  // 2. Escucha de búsquedas
   useEffect(() => {
     if (searchCoords && mapRef.current) {
       mapRef.current.flyTo([searchCoords.lat, searchCoords.lng], 15);
@@ -107,9 +116,9 @@ export default function MapSection({ onAddressSelect, zonasCriticas = [], estadi
       fetchPrediction();
       if (onClearSearch) onClearSearch();
     }
-  }, [searchCoords, searchAddress, zonasCriticas, onClearSearch]);
+  }, [searchCoords, searchAddress, zonasCriticas, onClearSearch, onAddressSelect]);
 
-  // 3. Manejador de clics interactivos en el mapa libre
+  // 3. Manejador de clics en el mapa
   function MapClickHandler() {
     useMapEvents({
       async click(e) {
@@ -169,20 +178,28 @@ export default function MapSection({ onAddressSelect, zonasCriticas = [], estadi
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' 
         />
 
-        {heatmapData.map((point, idx) => (
-          <Circle 
-            key={idx} 
-            center={[point[0], point[1]]} 
-            radius={160} 
-            pathOptions={{
-              fillColor: '#EF4444',
-              fillOpacity: 0.28, 
-              color: '#DC2626', 
-              weight: 1
-          }} 
-          />
-        ))}
+        {/* Heatmap circles con validación de coordenadas */}
+        {heatmapData.map((point, idx) => {
+          // Saltar puntos inválidos
+          if (!point || !Array.isArray(point) || point.length < 2 || typeof point[0] !== 'number' || typeof point[1] !== 'number') {
+            return null;
+          }
+          return (
+            <Circle 
+              key={idx} 
+              center={[point[0], point[1]]} 
+              radius={160} 
+              pathOptions={{
+                fillColor: '#EF4444',
+                fillOpacity: 0.28, 
+                color: '#DC2626', 
+                weight: 1
+              }} 
+            />
+          );
+        })}
 
+        {/* Marcadores de zonas críticas */}
         {zonasCriticas.map(zona => {
           const { color, strokeColor, size } = getMarkerStyle(zona);
           const riesgo = calcularRiesgo(zona);

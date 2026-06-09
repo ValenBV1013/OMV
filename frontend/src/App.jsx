@@ -18,16 +18,45 @@ import imgVarianteCaldas from './assets/variante_caldas.png';
 import imgSanJuan from './assets/accidente_san_juan.png';
 import imgTunelOriente from './assets/tunel_oriente.png';
 
-// --- DATOS DE RESPALDO (MOCK) ---
+// --- DATOS DE RESPALDO (MOCK) CON latitud/longitud (como espera MapSection) ---
 const mockZonasCriticas = [
-  { id: 1, sector_geografico: "Autopista Sur", total_accidentes: 45, total_lesionados: 32, total_fatalidades: 5, nivel_riesgo_predictivo: 78 },
-  { id: 2, sector_geografico: "Calle 30", total_accidentes: 38, total_lesionados: 27, total_fatalidades: 3, nivel_riesgo_predictivo: 65 },
-  // ... añade tus datos reales si los tienes
+  {
+    id: 1,
+    sector_geografico: "Autopista Sur",
+    latitud: 6.2442,
+    longitud: -75.5812,
+    total_accidentes: 45,
+    total_lesionados: 32,
+    total_fatalidades: 5,
+    nivel_riesgo: "Alto",
+    nivel_riesgo_predictivo: 78
+  },
+  {
+    id: 2,
+    sector_geografico: "Calle 30",
+    latitud: 6.2530,
+    longitud: -75.5634,
+    total_accidentes: 38,
+    total_lesionados: 27,
+    total_fatalidades: 3,
+    nivel_riesgo: "Medio",
+    nivel_riesgo_predictivo: 65
+  },
+  {
+    id: 3,
+    sector_geografico: "Parque de los Deseos",
+    latitud: 6.2670,
+    longitud: -75.5700,
+    total_accidentes: 12,
+    total_lesionados: 9,
+    total_fatalidades: 0,
+    nivel_riesgo: "Bajo",
+    nivel_riesgo_predictivo: 25
+  }
 ];
 
 const mockInfracciones = [
   { id: 1, lugar: "Carrera 50 con Calle 10", tipo: "Fotomulta", valor: 450000, fecha: "2025-02-10" },
-  // ... tus datos
 ];
 
 const RESPALDO_NOTICIAS = [
@@ -60,7 +89,6 @@ const RESPALDO_NOTICIAS = [
 function App() {
   // ── LOADER ─────────────────────────────────────────────────────
   const [appLoading, setAppLoading] = useState(true);
-
   const { user, loading: authLoading } = useAuth();
 
   // ── DATOS DE MOVILIDAD CON CARGA DESDE API ──────────────────────────────────
@@ -73,7 +101,6 @@ function App() {
         // Reemplaza esta URL por la dirección real de tu API de datos abiertos
         const response = await fetch('TU_API_ENDPOINT_AQUI');
         const data = await response.json();
-        
         setZonasCriticas(data.zonas || mockZonasCriticas);
         setInfracciones(data.multas || mockInfracciones);
       } catch (error) {
@@ -82,13 +109,12 @@ function App() {
         setInfracciones(mockInfracciones);
       }
     };
-
     fetchDatosMovilidad();
     const interval = setInterval(fetchDatosMovilidad, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // ── ESTADÍSTICAS (actualizadas cuando zonasCriticas cambie) ─────────────────
+  // ── ESTADÍSTICAS ────────────────────────────────────────────────
   const [estadisticas, setEstadisticas] = useState({ total: 0, lesionados: 0, fatalidades: 0 });
 
   useEffect(() => {
@@ -96,12 +122,11 @@ function App() {
       const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
       const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
       const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
-      
       setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
     }
   }, [zonasCriticas]);
 
-  // ── RESTO DE ESTADOS ORIGINALES ────────────────────────────────────────────
+  // ── RESTO DE ESTADOS ORIGINALES ─────────────────────────────────
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   const [vista, setVista] = useState('mapa');
@@ -115,7 +140,7 @@ function App() {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
-  // ── CARGA DE NOTICIAS DESDE API ───────────────────────────────────────────
+  // ── CARGA DE NOTICIAS ───────────────────────────────────────────
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
@@ -143,16 +168,16 @@ function App() {
     fetchLiveNews();
   }, []);
 
-  // ── CARRUSEL DE NOTICIAS ──────────────────────────────────────────────────
+  // ── CARRUSEL DE NOTICIAS ────────────────────────────────────────
   useEffect(() => {
     if (isCarouselPaused || noticias.length === 0) return;
     const interval = setInterval(() => {
-      setCurrentNewsIndex((prevIndex) => (prevIndex + 1) % noticias.length);
+      setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
     }, 3000);
     return () => clearInterval(interval);
   }, [noticias, isCarouselPaused]);
 
-  // ── HANDLERS ORIGINALES ───────────────────────────────────────────────────
+  // ── HANDLERS ────────────────────────────────────────────────────
   const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
@@ -165,14 +190,10 @@ function App() {
     setRouteResult(null);
     try {
       const result = await getSafeRoute(origen, destino, modoLluvias);
-      if (result.error) {
-        setRouteError(result.error);
-      } else {
-        setRouteResult(result);
-      }
+      if (result.error) setRouteError(result.error);
+      else setRouteResult(result);
     } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Error al calcular la ruta';
-      setRouteError(msg);
+      setRouteError(err.response?.data?.error || err.message || 'Error al calcular la ruta');
     } finally {
       setRouteLoading(false);
     }
@@ -188,7 +209,7 @@ function App() {
     setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
   };
 
-  // ── AUTENTICACIÓN Y LOADER ────────────────────────────────────────────────
+  // ── AUTENTICACIÓN Y LOADER ──────────────────────────────────────
   if (authLoading || appLoading) {
     return <Loader onFinish={() => setAppLoading(false)} />;
   }
@@ -202,7 +223,7 @@ function App() {
     );
   }
 
-  // ── RENDER PRINCIPAL (idéntico al original) ──────────────────────────────
+  // ── RENDER PRINCIPAL (completo, sin cambios en el JSX) ──────────
   return (
     <>
       <Toaster position="top-right" />
@@ -340,7 +361,7 @@ function App() {
                         <th className="p-3">Fatalidades</th>
                         <th className="p-3 text-center">Riesgo Predictivo</th>
                         <th className="p-3 text-center rounded-r-lg">Acción</th>
-                       </tr>
+                      </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-600 text-sm">
                       {zonasCriticas.map((zona) => (
@@ -365,7 +386,7 @@ function App() {
                         </tr>
                       ))}
                     </tbody>
-                   </table>
+                  </table>
                 </div>
               </div>
 
