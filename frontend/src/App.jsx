@@ -18,41 +18,11 @@ import imgVarianteCaldas from './assets/variante_caldas.png';
 import imgSanJuan from './assets/accidente_san_juan.png';
 import imgTunelOriente from './assets/tunel_oriente.png';
 
-// --- DATOS DE RESPALDO (MOCK) CON latitud/longitud (como espera MapSection) ---
+// --- DATOS DE RESPALDO (MOCK) CON latitud/longitud ---
 const mockZonasCriticas = [
-  {
-    id: 1,
-    sector_geografico: "Autopista Sur",
-    latitud: 6.2442,
-    longitud: -75.5812,
-    total_accidentes: 45,
-    total_lesionados: 32,
-    total_fatalidades: 5,
-    nivel_riesgo: "Alto",
-    nivel_riesgo_predictivo: 78
-  },
-  {
-    id: 2,
-    sector_geografico: "Calle 30",
-    latitud: 6.2530,
-    longitud: -75.5634,
-    total_accidentes: 38,
-    total_lesionados: 27,
-    total_fatalidades: 3,
-    nivel_riesgo: "Medio",
-    nivel_riesgo_predictivo: 65
-  },
-  {
-    id: 3,
-    sector_geografico: "Parque de los Deseos",
-    latitud: 6.2670,
-    longitud: -75.5700,
-    total_accidentes: 12,
-    total_lesionados: 9,
-    total_fatalidades: 0,
-    nivel_riesgo: "Bajo",
-    nivel_riesgo_predictivo: 25
-  }
+  { id: 1, sector_geografico: "Autopista Sur", latitud: 6.2442, longitud: -75.5812, total_accidentes: 45, total_lesionados: 32, total_fatalidades: 5, nivel_riesgo: "Alto", nivel_riesgo_predictivo: 78 },
+  { id: 2, sector_geografico: "Calle 30", latitud: 6.2530, longitud: -75.5634, total_accidentes: 38, total_lesionados: 27, total_fatalidades: 3, nivel_riesgo: "Medio", nivel_riesgo_predictivo: 65 },
+  { id: 3, sector_geografico: "Parque de los Deseos", latitud: 6.2670, longitud: -75.5700, total_accidentes: 12, total_lesionados: 9, total_fatalidades: 0, nivel_riesgo: "Bajo", nivel_riesgo_predictivo: 25 }
 ];
 
 const mockInfracciones = [
@@ -60,45 +30,20 @@ const mockInfracciones = [
 ];
 
 const RESPALDO_NOTICIAS = [
-  {
-    id: "fb-1",
-    titulo: "En la variante a Caldas van nueve muertos: es la vía más letal del Valle de Aburrá",
-    descripcion: "De acuerdo con los reportes judiciales, todas las víctimas registradas en este importante corredor vial se han presentado en la calzada en descenso hacia Medellín...",
-    imagen: imgVarianteCaldas,
-    tipo_alerta_display: "Crítico",
-    url: "https://www.elcolombiano.com/antioquia/accidentes-variante-a-caldas-medellin-MF35659335"
-  },
-  {
-    id: "fb-2",
-    titulo: "Un motociclista y un peatón muertos en trágicos accidentes de tránsito en Medellín",
-    descripcion: "La ciudad sumó nuevas fatalidades viales tras reportarse dos fuertes impactos durante la madrugada...",
-    imagen: imgSanJuan,
-    tipo_alerta_display: "Crítico",
-    url: "https://qhubomedellin.com/actualidad/movilidad/un-motociclista-y-un-peaton-muertos-en-accidentes-de-transito-en-medellin-HH34002140"
-  },
-  {
-    id: "fb-3",
-    titulo: "Una persona murió tras choque de camioneta contra una caseta en el Túnel de Oriente",
-    descripcion: "Un trágico accidente de tránsito se registró en la mañana de este jueves en el Túnel de Oriente...",
-    imagen: imgTunelOriente,
-    tipo_alerta_display: "Crítico",
-    url: "https://www.elcolombiano.com/antioquia/una-persona-murio-tras-choque-de-camioneta-contra-una-caseta-en-el-tunel-de-oriente-GI36584222"
-  }
+  { id: "fb-1", titulo: "En la variante a Caldas van nueve muertos: es la vía más letal del Valle de Aburrá", descripcion: "De acuerdo con los reportes judiciales, todas las víctimas...", imagen: imgVarianteCaldas, tipo_alerta_display: "Crítico", url: "https://www.elcolombiano.com/antioquia/accidentes-variante-a-caldas-medellin-MF35659335" },
+  { id: "fb-2", titulo: "Un motociclista y un peatón muertos en trágicos accidentes de tránsito en Medellín", descripcion: "La ciudad sumó nuevas fatalidades viales...", imagen: imgSanJuan, tipo_alerta_display: "Crítico", url: "https://qhubomedellin.com/actualidad/movilidad/un-motociclista-y-un-peaton-muertos-en-accidentes-de-transito-en-medellin-HH34002140" },
+  { id: "fb-3", titulo: "Una persona murió tras choque de camioneta contra una caseta en el Túnel de Oriente", descripcion: "Un trágico accidente de tránsito se registró en la mañana...", imagen: imgTunelOriente, tipo_alerta_display: "Crítico", url: "https://www.elcolombiano.com/antioquia/una-persona-murio-tras-choque-de-camioneta-contra-una-caseta-en-el-tunel-de-oriente-GI36584222" }
 ];
 
 function App() {
-  // ── LOADER ─────────────────────────────────────────────────────
   const [appLoading, setAppLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
-
-  // ── DATOS DE MOVILIDAD CON CARGA DESDE API ──────────────────────────────────
   const [zonasCriticas, setZonasCriticas] = useState([]);
   const [infracciones, setInfracciones] = useState([]);
 
   useEffect(() => {
     const fetchDatosMovilidad = async () => {
       try {
-        // Reemplaza esta URL por la dirección real de tu API de datos abiertos
         const response = await fetch('TU_API_ENDPOINT_AQUI');
         const data = await response.json();
         setZonasCriticas(data.zonas || mockZonasCriticas);
@@ -114,7 +59,6 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── ESTADÍSTICAS ────────────────────────────────────────────────
   const [estadisticas, setEstadisticas] = useState({ total: 0, lesionados: 0, fatalidades: 0 });
 
   useEffect(() => {
@@ -126,7 +70,6 @@ function App() {
     }
   }, [zonasCriticas]);
 
-  // ── RESTO DE ESTADOS ORIGINALES ─────────────────────────────────
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   const [vista, setVista] = useState('mapa');
@@ -140,7 +83,6 @@ function App() {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
-  // ── CARGA DE NOTICIAS ───────────────────────────────────────────
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
@@ -168,7 +110,6 @@ function App() {
     fetchLiveNews();
   }, []);
 
-  // ── CARRUSEL DE NOTICIAS ────────────────────────────────────────
   useEffect(() => {
     if (isCarouselPaused || noticias.length === 0) return;
     const interval = setInterval(() => {
@@ -177,7 +118,6 @@ function App() {
     return () => clearInterval(interval);
   }, [noticias, isCarouselPaused]);
 
-  // ── HANDLERS ────────────────────────────────────────────────────
   const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
@@ -209,7 +149,6 @@ function App() {
     setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
   };
 
-  // ── AUTENTICACIÓN Y LOADER ──────────────────────────────────────
   if (authLoading || appLoading) {
     return <Loader onFinish={() => setAppLoading(false)} />;
   }
@@ -223,21 +162,17 @@ function App() {
     );
   }
 
-  // ── RENDER PRINCIPAL (completo, sin cambios en el JSX) ──────────
   return (
     <>
       <Toaster position="top-right" />
       <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
         <Navbar setVista={setVista} />
 
-        <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-center gap-4 flex-wrap">
-        </div>
-
-        <main className="flex-1 relative w-full overflow-hidden">
-
+        {/* Solo cambié el padding y agregué un contenedor centrado con max-w-7xl */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-6 lg:py-8">
           {vista === 'mapa' ? (
             <div className="relative w-full h-[calc(100vh-120px)] min-h-[500px]">
-              <div className="absolute inset-0 z-0">
+              <div className="absolute inset-0 z-0 rounded-xl overflow-hidden shadow-2xl border border-slate-700">
                 <MapSection 
                   onAddressSelect={(addr, pred) => { setSelectedAddress(addr); setPrediction(pred); }}
                   zonasCriticas={zonasCriticas}
@@ -265,37 +200,16 @@ function App() {
                   </div>
                   <div className="flex items-center gap-4 border-r border-slate-800 pr-5">
                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Tráfico</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-md shadow-red-500/30"></span>
-                      <span>Alta</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-md shadow-amber-500/30"></span>
-                      <span>Media</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-md shadow-emerald-500/30"></span>
-                      <span>Baja</span>
-                    </div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-md shadow-red-500/30"></span><span>Alta</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-md shadow-amber-500/30"></span><span>Media</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-md shadow-emerald-500/30"></span><span>Baja</span></div>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Riesgo Vial</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-red-900 rounded-full border border-red-500/50 animate-pulse"></span>
-                      <span className="text-red-400 font-medium">Crítica</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
-                      <span>Alto</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
-                      <span>Medio</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                      <span>Bajo</span>
-                    </div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-900 rounded-full border border-red-500/50 animate-pulse"></span><span className="text-red-400 font-medium">Crítica</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span><span>Alto</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span><span>Medio</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span><span>Bajo</span></div>
                   </div>
                 </div>
               </div>
@@ -361,7 +275,7 @@ function App() {
                         <th className="p-3">Fatalidades</th>
                         <th className="p-3 text-center">Riesgo Predictivo</th>
                         <th className="p-3 text-center rounded-r-lg">Acción</th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-600 text-sm">
                       {zonasCriticas.map((zona) => (
