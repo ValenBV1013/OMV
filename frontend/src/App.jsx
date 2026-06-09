@@ -9,7 +9,6 @@ import SafeRouteResult from './components/SafeRouteResult';
 import TrafficIRL from './components/TrafficIRL';
 import { getSafeRoute } from './services/safeRoutesApi';
 import Loader from "./components/Loader";
-// <-- NUEVO: importaciones para autenticación
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { Toaster } from 'react-hot-toast';
@@ -19,35 +18,17 @@ import imgVarianteCaldas from './assets/variante_caldas.png';
 import imgSanJuan from './assets/accidente_san_juan.png';
 import imgTunelOriente from './assets/tunel_oriente.png';
 
-// --- DATOS DE PRUEBA OFICIALES DE MEDELLÍN ---
-const [zonasCriticas, setZonasCriticas] = useState([]);
-const [infracciones, setInfracciones] = useState([]);
+// --- DATOS DE RESPALDO (MOCK) ---
+const mockZonasCriticas = [
+  { id: 1, sector_geografico: "Autopista Sur", total_accidentes: 45, total_lesionados: 32, total_fatalidades: 5, nivel_riesgo_predictivo: 78 },
+  { id: 2, sector_geografico: "Calle 30", total_accidentes: 38, total_lesionados: 27, total_fatalidades: 3, nivel_riesgo_predictivo: 65 },
+  // ... añade tus datos reales si los tienes
+];
 
-useEffect(() => {
-  const fetchDatosMovilidad = async () => {
-    try {
-      // Reemplaza esta URL por la dirección real de tu API de datos abiertos
-      const response = await fetch('TU_API_ENDPOINT_AQUI');
-      const data = await response.json();
-      
-      setZonasCriticas(data.zonas || mockZonasCriticas);
-      setInfracciones(data.multas || mockInfracciones);
-    } catch (error) {
-      console.warn("API no disponible, usando datos de respaldo.");
-      setZonasCriticas(mockZonasCriticas);
-      setInfracciones(mockInfracciones);
-    }
-  };
-
-  // Cargar al montar el componente
-  fetchDatosMovilidad();
-
-  // Opcional: Refrescar cada 60 segundos para simular tiempo real
-  const interval = setInterval(fetchDatosMovilidad, 60000);
-  return () => clearInterval(interval);
-}, []);
-
-
+const mockInfracciones = [
+  { id: 1, lugar: "Carrera 50 con Calle 10", tipo: "Fotomulta", valor: 450000, fecha: "2025-02-10" },
+  // ... tus datos
+];
 
 const RESPALDO_NOTICIAS = [
   {
@@ -77,16 +58,50 @@ const RESPALDO_NOTICIAS = [
 ];
 
 function App() {
-  // ── LOADER: único estado nuevo agregado ─────────────────────────────────────
+  // ── LOADER ─────────────────────────────────────────────────────
   const [appLoading, setAppLoading] = useState(true);
 
-  // <-- NUEVO: obtener estado de autenticación
   const { user, loading: authLoading } = useAuth();
 
-  // ── TU ESTADO ORIGINAL (sin ningún cambio) ──────────────────────────────────
-  const [zonasCriticas] = useState(mockZonasCriticas);
-  const [infracciones] = useState(mockInfracciones);
+  // ── DATOS DE MOVILIDAD CON CARGA DESDE API ──────────────────────────────────
+  const [zonasCriticas, setZonasCriticas] = useState([]);
+  const [infracciones, setInfracciones] = useState([]);
+
+  useEffect(() => {
+    const fetchDatosMovilidad = async () => {
+      try {
+        // Reemplaza esta URL por la dirección real de tu API de datos abiertos
+        const response = await fetch('TU_API_ENDPOINT_AQUI');
+        const data = await response.json();
+        
+        setZonasCriticas(data.zonas || mockZonasCriticas);
+        setInfracciones(data.multas || mockInfracciones);
+      } catch (error) {
+        console.warn("API no disponible, usando datos de respaldo.");
+        setZonasCriticas(mockZonasCriticas);
+        setInfracciones(mockInfracciones);
+      }
+    };
+
+    fetchDatosMovilidad();
+    const interval = setInterval(fetchDatosMovilidad, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── ESTADÍSTICAS (actualizadas cuando zonasCriticas cambie) ─────────────────
   const [estadisticas, setEstadisticas] = useState({ total: 0, lesionados: 0, fatalidades: 0 });
+
+  useEffect(() => {
+    if (zonasCriticas.length > 0) {
+      const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
+      const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
+      const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
+      
+      setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
+    }
+  }, [zonasCriticas]);
+
+  // ── RESTO DE ESTADOS ORIGINALES ────────────────────────────────────────────
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
   const [vista, setVista] = useState('mapa');
@@ -100,16 +115,7 @@ function App() {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
-useEffect(() => {
-  if (zonasCriticas.length > 0) {
-    const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
-    const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
-    const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
-    
-    setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
-  }
-}, [zonasCriticas]); // Se ejecuta automáticamente cada vez que la API actualiza zonasCriticas
-
+  // ── CARGA DE NOTICIAS DESDE API ───────────────────────────────────────────
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
@@ -137,6 +143,7 @@ useEffect(() => {
     fetchLiveNews();
   }, []);
 
+  // ── CARRUSEL DE NOTICIAS ──────────────────────────────────────────────────
   useEffect(() => {
     if (isCarouselPaused || noticias.length === 0) return;
     const interval = setInterval(() => {
@@ -145,6 +152,7 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, [noticias, isCarouselPaused]);
 
+  // ── HANDLERS ORIGINALES ───────────────────────────────────────────────────
   const handleSearchAddress = (addr, coords) => {
     setSearchAddress(addr);
     setSearchCoords(coords);
@@ -180,14 +188,11 @@ useEffect(() => {
     setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
   };
 
-  // <-- NUEVO: si auth está cargando o appLoader está cargando, muestra Loader (el tuyo)
+  // ── AUTENTICACIÓN Y LOADER ────────────────────────────────────────────────
   if (authLoading || appLoading) {
-    // Si ya pasó tu loader personalizado pero authLoading sigue true, mostramos el mismo loader
-    // para no cambiar la experiencia. Si tu loader ya se encargó de appLoading, ok.
     return <Loader onFinish={() => setAppLoading(false)} />;
   }
 
-  // <-- NUEVO: si no hay usuario autenticado, muestra el Login
   if (!user) {
     return (
       <>
@@ -197,10 +202,10 @@ useEffect(() => {
     );
   }
 
-  // ── TU RETURN ORIGINAL (sin ningún cambio) ──────────────────────────────────
+  // ── RENDER PRINCIPAL (idéntico al original) ──────────────────────────────
   return (
     <>
-      <Toaster position="top-right" /> {/* <-- NUEVO: toaster para notificaciones */}
+      <Toaster position="top-right" />
       <div className="bg-slate-900 min-h-screen font-sans antialiased text-slate-100 flex flex-col">
         <Navbar setVista={setVista} />
 
@@ -335,7 +340,7 @@ useEffect(() => {
                         <th className="p-3">Fatalidades</th>
                         <th className="p-3 text-center">Riesgo Predictivo</th>
                         <th className="p-3 text-center rounded-r-lg">Acción</th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-600 text-sm">
                       {zonasCriticas.map((zona) => (
@@ -360,7 +365,7 @@ useEffect(() => {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                   </table>
                 </div>
               </div>
 
