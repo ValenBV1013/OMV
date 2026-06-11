@@ -6,6 +6,7 @@ from supabase import create_client, Client
 from django.conf import settings
 import random
 from datetime import datetime
+from .predictor import TrafficPredictorLite   
 
 # ---------- CLIENTE SUPABASE (usando variables desde settings) ----------
 supabase: Client = create_client(
@@ -42,6 +43,30 @@ def predict_congestion(request):
         "factores": factores,
         "estado": estado,
         "recomendacion": recomendacion
+    })
+
+    # ---------- NUEVO ENDPOINT CON PREDICCIÓN REAL (series temporales) ----------
+@api_view(['POST'])
+def predict_congestion_v2(request):
+    zona_id = request.data.get('sector_id', 1)
+    predictor = TrafficPredictorLite(zona_id)
+    predicciones = predictor.predecir(horizonte_horas=4)
+    prob_max = max(p['probabilidad_congestion'] for p in predicciones)
+    if prob_max > 0.7:
+        estado = "CONGESTION ALTA"
+        recomendacion = "Evite la zona durante las próximas horas"
+    elif prob_max > 0.4:
+        estado = "CONGESTION MODERADA"
+        recomendacion = "Precaución, tráfico irregular"
+    else:
+        estado = "LIBRE"
+        recomendacion = "Tránsito normal"
+    return Response({
+        'predicciones': predicciones,   # array de 4 horas
+        'probabilidad_maxima': prob_max,
+        'ventana': '4 horas',
+        'estado': estado,
+        'recomendacion': recomendacion
     })
 
 @api_view(['GET'])

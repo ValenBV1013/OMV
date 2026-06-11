@@ -28,3 +28,70 @@
   background: transparent !important;
   border: none !important;
 }
+
+/* Contenedor base del marcador */
+.custom-sonar-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* Punto central sólido del marcador */
+.sonar-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  z-index: 2;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Ondas expansivas de fondo */
+.sonar-wave {
+  position: absolute;
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0;
+  transform: scale(1);
+  animation: sonar-expand 2.5s infinite linear;
+}
+
+/* Desfase de tiempos para crear múltiples anillos concéntricos */
+.wave-1 {
+  animation-delay: 0s;
+}
+.wave-2 {
+  animation-delay: 0.8s;
+}
+.wave-3 {
+  animation-delay: 1.6s;
+}
+
+/* Variaciones de color según la severidad / congestión */
+.sonar-alto .sonar-core { background-color: #f87171; }
+.sonar-alto .sonar-wave { background-color: rgba(248, 113, 113, 0.4); }
+
+.sonar-medio .sonar-core { background-color: #fbbf24; }
+.sonar-medio .sonar-wave { background-color: rgba(251, 191, 36, 0.4); }
+
+.sonar-bajo .sonar-core { background-color: #34d399; }
+.sonar-bajo .sonar-wave { background-color: rgba(52, 211, 153, 0.4); }
+
+/* Animación matemática de la onda */
+@keyframes sonar-expand {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(4.5); /* Controla qué tan lejos se expanden las ondas */
+    opacity: 0;
+  }
+}

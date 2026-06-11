@@ -1,28 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, AlertCircle, TrendingUp, HelpCircle, Route } from 'lucide-react';
+import { Send, Bot, User, AlertCircle, MapPin, TrendingUp, HelpCircle, Route } from 'lucide-react';
+import axios from 'axios';
+
+const API_URL = 'http://localhost:8000/api';
 
 function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], onSearchAddress }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef(null);
-  const [ultimaOferta, setUltimaOferta] = useState(null); // guarda qué oferta se hizo (rutas u horarios)
 
+  // Geocodificación para toda Colombia (Nominatim + Photon)
   const geocodeAddress = async (direccion) => {
     try {
       let query = direccion.trim();
+      // Si no incluye "Colombia", se añade para buscar en todo el país
       if (!query.toLowerCase().includes('colombia')) {
         query = `${query}, Colombia`;
       }
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'MovAI-App/1.0' } });
-      const data = await res.json();
-      if (data?.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(direccion)}&limit=1`;
-      const photonRes = await fetch(photonUrl);
-      const photonData = await photonRes.json();
-      if (photonData?.features?.length) {
-        const [lng, lat] = photonData.features[0].geometry.coordinates;
+      // Intentar con Nominatim
+      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`;
+      const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'MovAI-App/1.0' } });
+      const nomData = await nomRes.json();
+      if (nomData?.length) {
+        return { lat: parseFloat(nomData[0].lat), lng: parseFloat(nomData[0].lon) };
+      }
+      // Fallback con Photon
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(direccion)}&limit=1&lang=es`;
+      const phRes = await fetch(photonUrl);
+      const phData = await phRes.json();
+      if (phData?.features?.length) {
+        const [lng, lat] = phData.features[0].geometry.coordinates;
         return { lat, lng };
       }
       return null;
@@ -38,38 +46,35 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
 
   useEffect(() => {
     if (chatHistory.length === 0) {
-      setChatHistory([{ role: 'assistant', content: 'Hola, soy MovAI. Puedo predecir congestión vehicular, sugerir rutas alternativas, identificar zonas críticas y leer noticias de siniestros viales. También ubico direcciones en Colombia. ¿En qué puedo ayudarle?' }]);
+      setChatHistory([{
+        role: 'assistant',
+        content: '¡Hola! Soy MovAI, tu asistente de movilidad inteligente. Puedo ayudarte con:\n\n• 🗺️ **Predicción de congestión** (haz clic en el mapa)\n• 🚗 **Rutas alternativas** (dime tu ubicación o selecciona un punto)\n• ⚠️ **Zonas críticas** de accidentalidad\n• 📰 **Noticias de incidentes** recientes\n• 📊 **Comparar riesgo** entre sectores\n• 🕒 **Mejores horarios** para conducir\n• 💰 **Fotomultas y costos**\n\n¿Qué necesitas?'
+      }]);
     }
   }, []);
 
   // Respuesta automática al recibir predicción (clic o búsqueda)
   useEffect(() => {
     if (prediction && address && !chatHistory.some(msg => msg.address === address)) {
-      const estado = prediction.estado;
-      const prob = (prediction.probabilidad * 100).toFixed(1);
-      const ventana = prediction.ventana;
-      const factores = prediction.factores;
-      const zonaCritica = prediction.zona_critica ? `\nAdvertencia: ${prediction.zona_critica} es una zona de alto riesgo de accidentalidad.` : '';
+      const emoji = prediction.probabilidad > 0.7 ? '🔴' : prediction.probabilidad > 0.4 ? '🟡' : '🟢';
+      const riesgoTexto = prediction.zona_critica ? `\n⚠️ **Zona crítica:** ${prediction.zona_critica} (Nivel ${prediction.nivel_riesgo})` : '';
       const systemMsg = {
         role: 'system',
         address,
-        content: `Ubicación: ${address}\n\nEstado actual: ${estado}\nProbabilidad de empeorar en las próximas ${ventana}: ${prob}%\nFactores: ${factores}${zonaCritica}`
+        content: `📍 **${address}**\n\n${emoji} **Estado actual:** ${prediction.estado}\n📊 **Probabilidad de empeorar en las próximas ${prediction.ventana}:** ${(prediction.probabilidad*100).toFixed(1)}%\n🔑 **Factores contribuyentes:** ${prediction.factores}${riesgoTexto}`
       };
       setChatHistory(prev => [...prev, systemMsg]);
       setIsTyping(true);
       setTimeout(() => {
         let advice = '';
         if (prediction.probabilidad > 0.7) {
-          advice = `Alerta de congestión crítica (${prob}% de empeorar en ${ventana}). Recomiendo evitar esta zona o buscar rutas alternativas. ¿Necesita sugerencias?`;
-          setUltimaOferta('rutas');
+          advice = `⚠️ **Alerta de congestión crítica** (${(prediction.probabilidad*100).toFixed(0)}% de empeorar en ${prediction.ventana}). Recomiendo evitar esta zona o buscar rutas alternativas. ¿Necesitas sugerencias?`;
         } else if (prediction.probabilidad > 0.4) {
-          advice = `Precaución: se espera tráfico irregular en las próximas ${ventana}. ¿Desea conocer los horarios de menor congestión o rutas alternativas?`;
-          setUltimaOferta('horarios');
+          advice = `🚗 **Precaución moderada** - Se espera tráfico irregular en las próximas ${prediction.ventana}. ¿Quieres conocer los horarios de menor congestión o rutas alternativas?`;
         } else {
-          advice = `Vía fluida por ahora. Si lo desea, puedo informarle sobre zonas críticas cercanas.`;
-          setUltimaOferta('zonas');
+          advice = `✅ **Vía fluida** - No hay riesgos de congestión por ahora. Si quieres, puedo informarte sobre zonas críticas cercanas.`;
         }
-        if (prediction.zona_critica) advice += `\nNota: ${prediction.zona_critica} es zona de alto riesgo. Extreme precauciones.`;
+        if (prediction.zona_critica) advice += `\n🔴 **Atención:** ${prediction.zona_critica} es una zona de alto riesgo. Extreme precauciones.`;
         setChatHistory(prev => [...prev, { role: 'assistant', content: advice }]);
         setIsTyping(false);
       }, 1000);
@@ -77,26 +82,9 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
   }, [prediction, address]);
 
   const generarRespuesta = async (mensaje) => {
-    const lower = mensaje.toLowerCase().trim();
-    
-    // Detectar respuestas afirmativas a la última oferta
-    const afirmaciones = ['sí', 'si', 'ok', 'vale', 'claro', 'por favor', 'adelante', 'dale', 'acepto', 'si por favor'];
-    if (afirmaciones.includes(lower) && ultimaOferta) {
-      if (ultimaOferta === 'rutas') {
-        setUltimaOferta(null);
-        return `Rutas alternativas sugeridas desde ${address ? address.substring(0, 35) : 'el punto seleccionado'}...\n- Avenida Regional: +8 minutos, 35% de congestión.\n- Calle 30: +12 minutos, 28% de congestión.\n- Avenida Las Palmas: +15 minutos, 45% de congestión.\nLa opción más eficiente es la Avenida Regional. ¿Necesita más detalles?`;
-      } else if (ultimaOferta === 'horarios') {
-        setUltimaOferta(null);
-        return `Horarios de menor congestión en Medellín:\n- De 10:00 a 11:30 AM.\n- De 2:00 a 4:00 PM.\nEvite las horas punta: 7:00-9:00 AM y 5:00-7:00 PM. Los fines de semana el tráfico se reduce aproximadamente un 35% en avenidas principales. ¿Necesita rutas alternativas para ahora?`;
-      } else if (ultimaOferta === 'zonas') {
-        setUltimaOferta(null);
-        const lista = zonasCriticas.map(z => `- ${z.nombre}: riesgo ${z.nivel_riesgo}, ${z.total_accidentes} accidentes registrados.`).join('\n');
-        return `Zonas críticas identificadas en Medellín:\n${lista}\n¿Desea visualizar alguna en el mapa?`;
-      }
-    }
-
-    // Detectar dirección
-    const locationKeywords = ['muéstrame','ve a','busca','muestra','ubica','dirección','calle','carrera','av','avenida','autopista','transversal','diagonal','circular','kr','cra','cll','barrio','urbanización','conjunto','residencial','vereda','parque','estación','terminal'];
+    const lower = mensaje.toLowerCase();
+    // Detectar dirección (para toda Colombia)
+    const locationKeywords = ['muéstrame','ve a','busca','muestra','ubica','dirección','calle','carrera','av','avenida','autopista','transversal','diagonal','circular','kr','cra','cll','barrio','urbanización','conjunto','residencial','vereda','parque','estación','terminal','corregimiento'];
     const match = mensaje.match(new RegExp(`^(${locationKeywords.join('|')})\\s+(.+)`, 'i'));
     if (match) {
       let direccion = match[2].replace(/^(en|de|la|el|los|las|del|al)\s+/i, '').replace(/\.$/, '');
@@ -104,58 +92,59 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
         const coords = await geocodeAddress(direccion);
         if (coords && onSearchAddress) {
           onSearchAddress(direccion, coords);
-          return `Mostrando "${direccion}" en el mapa. Centrando vista y analizando tráfico en ese punto. Espere un momento.`;
+          return `📍 **Mostrando "${direccion}" en el mapa.** He centrado la vista y estoy analizando el tráfico en ese punto. En un momento te diré el estado de congestión.`;
         }
-        return `No se encontró "${direccion}" en Colombia. Intente con más detalles (ciudad, barrio o nomenclatura más precisa). Ejemplo: "calle 10 con carrera 43A, Bogotá".`;
+        return `❌ No encontré "${direccion}" en Colombia. Intenta con más detalles (ciudad, barrio o calle principal).`;
       }
     }
-
-    // Rutas alternativas (sin esperar afirmación previa)
+    // Rutas alternativas
     if (lower.match(/ruta alternativa|alternativa|evitar tráfico|mejor ruta/)) {
       if (prediction && address) {
-        setUltimaOferta(null);
-        return `Rutas alternativas desde ${address.substring(0,35)}...\n- Avenida Regional: +8 min, 35% congestión.\n- Calle 30: +12 min, 28% congestión.\n- Avenida Las Palmas: +15 min, 45% congestión.\nLa mejor opción es la Avenida Regional. ¿Necesita más detalles?`;
+        return `🔄 **Rutas alternativas desde ${address.substring(0,35)}...**\n• Av. Regional (+8 min, 35% congestión)\n• Calle 30 (+12 min, 28% congestión)\n• Av. Las Palmas (+15 min, 45% congestión)\n💡 La mejor opción es Av. Regional. ¿Quieres más detalles?`;
       }
-      return `Para sugerir rutas alternativas, primero haga clic en el mapa sobre la ubicación de interés.`;
+      return "🗺️ Para sugerirte rutas alternativas, primero haz clic en el mapa en la ubicación que te interesa.";
     }
-
-    // Estado del tráfico actual
-    if (lower.match(/cómo está el tráfico|estado del tráfico|congestión|tráfico ahora/)) {
+    // Estado del tráfico
+    if (lower.match(/cómo está el tráfico|estado|congestión|tráfico ahora/)) {
       if (prediction) {
-        return `Informe de tráfico en ${address.substring(0,40)}:\n${prediction.estado}\nProbabilidad de empeorar en ${prediction.ventana}: ${(prediction.probabilidad*100).toFixed(0)}%\nFactores: ${prediction.factores}${prediction.zona_critica ? `\nAdemás, es una zona crítica.` : ''}`;
+        return `📊 **Informe de tráfico en ${address.substring(0,40)}**\n${prediction.estado}\n📈 Probabilidad de empeorar en ${prediction.ventana}: ${(prediction.probabilidad*100).toFixed(0)}%\n🌦️ Factores: ${prediction.factores}\n${prediction.zona_critica ? `⚠️ Además, es una zona crítica.` : ''}`;
       }
-      return `Haga clic en el mapa para obtener el estado del tráfico en tiempo real.`;
+      return "🔍 Haz clic en el mapa para obtener el estado del tráfico en tiempo real.";
     }
-
     // Zonas críticas
     if (lower.match(/zona crítica|puntos críticos|riesgo alto|accidentalidad/)) {
-      const lista = zonasCriticas.map(z => `- ${z.nombre}: riesgo ${z.nivel_riesgo}, ${z.total_accidentes} accidentes, ${z.total_fatalidades} fatalidades.`).join('\n');
-      return `Puntos críticos de accidentalidad en Medellín:\n${lista}\n¿Desea ver alguno en el mapa?`;
+      let zonaEspecifica = null;
+      for (let zona of zonasCriticas) {
+        if (lower.includes(zona.nombre?.toLowerCase()) || (zona.sector_geografico && lower.includes(zona.sector_geografico.toLowerCase().split(' ')[0]))) {
+          zonaEspecifica = zona;
+          break;
+        }
+      }
+      if (zonaEspecifica) {
+        return `⚠️ **${zonaEspecifica.nombre || zonaEspecifica.sector_geografico}**\n\n• Nivel de riesgo: ${zonaEspecifica.nivel_riesgo}\n• Accidentes últimos 12 meses: ${zonaEspecifica.total_accidentes}\n• Lesionados: ${zonaEspecifica.total_lesionados}\n• Fatalidades: ${zonaEspecifica.total_fatalidades}\n\n🚨 Recomendación: Evita esta zona entre 6:00-8:00 AM y 5:00-7:00 PM. ¿Quieres rutas alternativas para sortearla?`;
+      } else {
+        const lista = zonasCriticas.map(z => `• ${z.nombre || z.sector_geografico} (riesgo ${z.nivel_riesgo} - ${z.total_accidentes} accidentes)`).join('\n');
+        return `🚨 **Zonas críticas identificadas en Medellín:**\n${lista}\n\n¿Necesitas información detallada de alguna o rutas para evitarlas?`;
+      }
     }
-
     // Noticias
     if (lower.match(/noticias|incidente|accidente|choque|siniestro/)) {
       const notis = noticias.slice(0, 3);
-      return `Noticias recientes de siniestros viales:\n${notis.map(n => `- ${n.titulo} (${n.tipo_alerta_display})`).join('\n')}`;
+      return `📰 **Noticias recientes de siniestros viales:**\n${notis.map(n => `• ${n.titulo} (${n.tipo_alerta_display})`).join('\n')}`;
     }
-
     // Horarios
-    if (lower.match(/mejor hora|menos tráfico|horario recomendado/)) {
-      setUltimaOferta(null);
-      return `Recomendaciones horarias:\n- Menos tráfico: 10:00-11:30 AM y 2:00-4:00 PM.\n- Evitar horas punta: 7:00-9:00 AM y 5:00-7:00 PM.\n- Fines de semana: reducción del 35% en avenidas principales.`;
+    if (lower.match(/mejor hora|menos tráfico|horario/)) {
+      return "🕒 **Recomendaciones horarias:**\n• Menos tráfico: 10:00-11:30 AM y 2:00-4:00 PM.\n• Evitar horas punta: 7:00-9:00 AM y 5:00-7:00 PM.\n• Fines de semana: tráfico reducido en un 35%.";
     }
-
     // Fotomultas
     if (lower.match(/fotomulta|multa|infracción|comparendo/)) {
-      return `Infracciones comunes en Colombia y sus costos aproximados:\n- Exceso de velocidad: hasta $1.300.000 COP\n- Pasarse el semáforo en rojo: $1.300.000 COP\n- Violación de pico y placa: $650.000 COP\n- SOAT vencido: $1.300.000 COP`;
+      return "📸 **Infracciones comunes y sus costos en Medellín:**\n• Exceso de velocidad: hasta $1.300.000 COP\n• Pasarse el semáforo en rojo: $1.300.000 COP\n• Violación de pico y placa: $650.000 COP\n• SOAT vencido: $1.300.000 COP";
     }
-
-    // Ayuda o saludo
+    // Ayuda
     if (lower.match(/hola|ayuda|qué puedes hacer|comandos/)) {
-      return `Comandos disponibles:\n- "estado del tráfico" (después de hacer clic en el mapa)\n- "rutas alternativas"\n- "zonas críticas"\n- "noticias"\n- "muéstrame [dirección]" (ej: "barrio Laureles, Medellín")\n- "horarios recomendados"\n- "fotomultas"\n- Responder "sí" a mis sugerencias.`;
+      return "🤖 **Comandos disponibles:**\n• 'estado del tráfico' (después de hacer clic en el mapa)\n• 'rutas alternativas'\n• 'zonas críticas'\n• 'noticias'\n• 'muéstrame [dirección]' (ej: 'barrio Laureles', 'calle 10 en Bogotá', 'Parque de los Deseos')\n• 'horarios recomendados'\n• 'fotomultas'";
     }
-
-    return `No he entendido su pregunta. Puede consultar:\n- "estado del tráfico"\n- "zonas críticas"\n- "rutas alternativas"\n- "noticias"\n- "muéstrame la calle 10 en Bogotá"\n¿En qué más puedo ayudarle?`;
+    return "No entendí tu pregunta. Puedes probar con: 'estado del tráfico', 'zonas críticas', 'rutas alternativas', 'noticias' o 'muéstrame la calle 10 en Bogotá'.";
   };
 
   const handleSend = async () => {
@@ -172,48 +161,89 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-white">
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-4 shadow-lg">
-        <div className="flex items-center gap-3">
-          <Bot className="w-8 h-8" />
-          <div>
-            <h2 className="text-xl font-bold">MovAI Asistente</h2>
-            <p className="text-sm text-purple-200">Predicción de congestión (2-4h)</p>
+  <div style={{display:'flex',flexDirection:'column',height:'100%',background:'transparent'}}>
+
+    {/* Chat area */}
+    <div
+      style={{flex:1,overflowY:'auto',padding:'10px',display:'flex',flexDirection:'column',gap:'8px'}}
+      className="omv-scroll"
+    >
+      {chatHistory.map((msg, idx) => (
+        <div key={idx} style={{display:'flex',justifyContent:msg.role==='user'?'flex-end':'flex-start',gap:'6px',alignItems:'flex-end'}}>
+          
+          {msg.role !== 'user' && (
+            <div style={{width:'22px',height:'22px',borderRadius:'50%',flexShrink:0,background:'rgba(99,102,241,0.25)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px'}}>🤖</div>
+          )}
+
+          <div style={{
+            maxWidth:'83%', padding:'7px 10px', fontSize:'11px',
+            lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'break-word',
+            ...(msg.role==='user'
+              ? {background:'rgba(79,70,229,0.45)',color:'#e0e7ff',borderRadius:'12px 12px 2px 12px',border:'0.5px solid rgba(99,102,241,0.35)'}
+              : msg.role==='system'
+              ? {background:'rgba(245,158,11,0.08)',color:'#fcd34d',borderLeft:'2px solid #f59e0b',borderRadius:'0 8px 8px 0',padding:'6px 10px'}
+              : {background:'rgba(255,255,255,0.07)',color:'#cbd5e1',borderRadius:'12px 12px 12px 2px',border:'0.5px solid rgba(255,255,255,0.08)'}
+            ),
+          }}>
+            {msg.content}
+          </div>
+
+          {msg.role==='user' && (
+            <div style={{width:'22px',height:'22px',borderRadius:'50%',flexShrink:0,background:'rgba(79,70,229,0.5)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',color:'#fff'}}>👤</div>
+          )}
+        </div>
+      ))}
+
+      {isTyping && (
+        <div style={{display:'flex',gap:'6px',alignItems:'flex-end'}}>
+          <div style={{width:'22px',height:'22px',borderRadius:'50%',background:'rgba(99,102,241,0.25)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px'}}>🤖</div>
+          <div style={{background:'rgba(255,255,255,0.07)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:'12px 12px 12px 2px',padding:'8px 12px',display:'flex',gap:'4px',alignItems:'center'}}>
+            {[0,1,2].map(i => (
+              <span key={i} style={{width:'5px',height:'5px',borderRadius:'50%',background:'#475569',display:'inline-block',animation:'omvBounce 1.2s infinite',animationDelay:`${i*0.15}s`}} />
+            ))}
           </div>
         </div>
+      )}
+      <div ref={chatEndRef} />
+    </div>
+
+    {/* Input */}
+    <div style={{padding:'8px 10px',flexShrink:0,borderTop:'0.5px solid rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.25)'}}>
+      <div style={{display:'flex',gap:'6px',alignItems:'center',background:'rgba(255,255,255,0.06)',border:'0.5px solid rgba(255,255,255,0.1)',borderRadius:'20px',padding:'4px 4px 4px 12px'}}>
+        <input
+          type="text" value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyPress={e => e.key==='Enter' && handleSend()}
+          placeholder="¿Dónde hay más accidentes...?"
+          style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e2e8f0',fontSize:'11px',fontFamily:'inherit'}}
+        />
+        <button onClick={handleSend} disabled={!input.trim()}
+          style={{width:'26px',height:'26px',borderRadius:'50%',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s',background:input.trim()?'#4f46e5':'rgba(255,255,255,0.05)'}}>
+          <Send size={11} color={input.trim()?'#fff':'#475569'} />
+        </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {chatHistory.map((msg, idx) => (
-          <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role !== 'user' && <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center"><Bot className="w-5 h-5" /></div>}
-            <div className={`max-w-[80%] rounded-lg p-3 ${msg.role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}`}>
-              <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
-            </div>
-            {msg.role === 'user' && <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center"><User className="w-5 h-5" /></div>}
-          </div>
+
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:'6px',padding:'0 2px'}}>
+        {[{Icon:TrendingUp,label:'Predicción'},{Icon:AlertCircle,label:'Alertas'},{Icon:Route,label:'Rutas'},{Icon:HelpCircle,label:'Ayuda'}].map(({Icon,label}) => (
+          <button key={label}
+            style={{background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:'3px',color:'#334155',fontSize:'10px',fontFamily:'inherit',padding:'2px 4px',borderRadius:'4px'}}
+            onMouseEnter={e => { e.currentTarget.style.color='#64748b'; }}
+            onMouseLeave={e => { e.currentTarget.style.color='#334155'; }}
+          >
+            <Icon size={10} />{label}
+          </button>
         ))}
-        {isTyping && (
-          <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center"><Bot className="w-5 h-5" /></div>
-            <div className="bg-gray-800 rounded-lg p-3"><div className="flex gap-1"><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span></div></div>
-          </div>
-        )}
-        <div ref={chatEndRef} />
-      </div>
-      <div className="border-t border-gray-700 p-4 bg-gray-800">
-        <div className="flex gap-2">
-          <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Escriba su consulta aquí..." className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500" />
-          <button onClick={handleSend} disabled={!input.trim()} className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg px-4 py-2"><Send className="w-5 h-5" /></button>
-        </div>
-        <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-400">
-          <span><TrendingUp className="inline w-3 h-3" /> Predicción</span>
-          <span><AlertCircle className="inline w-3 h-3" /> Alertas</span>
-          <span><Route className="inline w-3 h-3" /> Rutas</span>
-          <span><HelpCircle className="inline w-3 h-3" /> Ayuda</span>
-        </div>
       </div>
     </div>
-  );
+
+    <style>{`
+      .omv-scroll::-webkit-scrollbar{width:3px}
+      .omv-scroll::-webkit-scrollbar-track{background:transparent}
+      .omv-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
+      @keyframes omvBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+    `}</style>
+  </div>
+);
 }
 
 export default AIAssistant;
