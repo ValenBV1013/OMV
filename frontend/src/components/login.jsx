@@ -105,15 +105,15 @@ export default function Login() {
               className="text-2xl font-bold tracking-wider text-white/90"
               style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '0.15em' }}
             >
-              INUTECH
+              OMV
             </h1>
           </div>
 
           {/* Título */}
           <div className="mb-2">
-            <h2 className="text-xl font-semibold text-white">Login with</h2>
+            <h2 className="text-xl font-semibold text-white">Iniciar sesión</h2>
             <p className="text-purple-300/50 text-[10px] mt-1 leading-relaxed max-w-[280px]">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore
+              Ingresa a nuestra plataforma
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function Login() {
                 <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
-              Option 1
+              Ingresar
             </button>
             <button
               type="button"
@@ -147,7 +147,7 @@ export default function Login() {
                 <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
-              Option 2
+              Registrarse
             </button>
           </div>
 
@@ -161,26 +161,26 @@ export default function Login() {
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Email</label>
+              <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Correo electrónico</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 bg-purple-950/30 border border-purple-500/30 rounded-full text-purple-100 text-sm placeholder-purple-400/30 focus:outline-none focus:border-purple-400/60 focus:shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-all"
-                placeholder="Enter your email"
+                placeholder="Ingresa tu correo electrónico"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Password</label>
+              <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Contraseña</label>
               <div className="relative">
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-purple-950/30 border border-purple-500/30 rounded-full text-purple-100 text-sm placeholder-purple-400/30 focus:outline-none focus:border-purple-400/60 focus:shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-all pr-10"
-                  placeholder="Enter your password"
+                  placeholder="Ingresa tu contraseña"
                   required
                 />
                 <button
@@ -197,13 +197,13 @@ export default function Login() {
 
             {!isLogin && (
               <div>
-                <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Confirm Password</label>
+                <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Confirmar contraseña</label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-purple-950/30 border border-purple-500/30 rounded-full text-purple-100 text-sm placeholder-purple-400/30 focus:outline-none focus:border-purple-400/60 focus:shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-all"
-                  placeholder="Confirm your password"
+                  placeholder="Confirma tu contraseña"
                   required
                 />
               </div>
@@ -214,7 +214,7 @@ export default function Login() {
               disabled={loading}
               className="w-full bg-purple-100 hover:bg-white text-purple-900 font-semibold py-2.5 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mt-2 shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]"
             >
-              {loading ? 'Cargando...' : 'Login'}
+              {loading ? 'Cargando...' : (isLogin ? 'Iniciar sesión' : 'Registrarse')}
             </button>
           </form>
 

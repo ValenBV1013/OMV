@@ -29,6 +29,11 @@ Thumbs.db
 backend/geodata/*.geojson
 !backend/geodata/.gitkeep
 
+# Ignore
+~$nual_de_Marca_OMV.docx
+Manual_de_Marca_OMV.docx
+generate_branding_doc.py
+
 # Test files
 test_*.json
 test_*.py
