@@ -111,9 +111,9 @@ export default function Login() {
 
           {/* Título */}
           <div className="mb-2">
-            <h2 className="text-xl font-semibold text-white">Iniciar sesión</h2>
+            <h2 className="text-xl font-semibold text-white">{isLogin ? 'Iniciar sesión': 'Registrarse'}</h2>
             <p className="text-purple-300/50 text-[10px] mt-1 leading-relaxed max-w-[280px]">
-              Ingresa a nuestra plataforma
+              {isLogin ? 'Ingresa a nuestra plataforma' : 'Registrate en nuestra plataforma'}
             </p>
           </div>
 
@@ -174,6 +174,7 @@ export default function Login() {
 
             <div>
               <label className="block text-purple-200/80 text-xs font-medium mb-2 ml-1">Contraseña</label>
+              {isLogin ? undefined : <label className="block text-purple-200/80 text-xs font-small mb-2 ml-1">Debe contener 1 Mayus, 1 Num, 1 Caracter especial</label>}
               <div className="relative">
                 <input
                   type="password"
