@@ -161,45 +161,77 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
   };
 
   return (
-  <div style={{display:'flex',flexDirection:'column',height:'100%',background:'transparent'}}>
+  <div style={{display:'flex',flexDirection:'column',height:'100%',background:'#0a0a1a'}}>
 
-    {/* Chat area */}
+    {/* Header con degradado - NUEVO ESTILO */}
+    <div style={{
+      padding:'14px 16px',
+      background:'linear-gradient(135deg, rgba(88,28,135,0.6) 0%, rgba(15,15,42,0.9) 100%)',
+      borderBottom:'1px solid rgba(168,85,247,0.2)',
+      display:'flex',
+      alignItems:'center',
+      gap:'10px',
+      flexShrink:0
+    }}>
+      <div style={{
+        width:'36px',
+        height:'36px',
+        borderRadius:'10px',
+        background:'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center',
+        boxShadow:'0 0 12px rgba(168,85,247,0.4)'
+      }}>
+        <Bot size={20} color="#fff" />
+      </div>
+      <div>
+        <div style={{color:'#fae8ff',fontSize:'14px',fontWeight:'600'}}>Asistente IA</div>
+        <div style={{color:'#a78bfa',fontSize:'9px',letterSpacing:'0.08em',textTransform:'uppercase'}}>Análisis en tiempo real</div>
+      </div>
+      <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'6px'}}>
+        <span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#22d3ee',boxShadow:'0 0 6px #22d3ee'}} />
+        <span style={{color:'#22d3ee',fontSize:'9px',letterSpacing:'0.05em'}}>EN LÍNEA</span>
+      </div>
+    </div>
+
+    {/* Chat area - fondo con degradado sutil */}
     <div
-      style={{flex:1,overflowY:'auto',padding:'10px',display:'flex',flexDirection:'column',gap:'8px'}}
+      style={{flex:1,overflowY:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:'10px',background:'linear-gradient(180deg, rgba(15,15,42,0.3) 0%, rgba(88,28,135,0.15) 50%, rgba(15,15,42,0.3) 100%)'}}
       className="omv-scroll"
     >
       {chatHistory.map((msg, idx) => (
-        <div key={idx} style={{display:'flex',justifyContent:msg.role==='user'?'flex-end':'flex-start',gap:'6px',alignItems:'flex-end'}}>
+        <div key={idx} style={{display:'flex',justifyContent:msg.role==='user'?'flex-end':'flex-start',gap:'8px',alignItems:'flex-end'}}>
           
           {msg.role !== 'user' && (
-            <div style={{width:'22px',height:'22px',borderRadius:'50%',flexShrink:0,background:'rgba(99,102,241,0.25)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px'}}>🤖</div>
+            <div style={{width:'24px',height:'24px',borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg, rgba(168,85,247,0.3) 0%, rgba(192,38,211,0.2) 100%)',border:'1px solid rgba(168,85,247,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',boxShadow:'0 0 8px rgba(168,85,247,0.2)'}}>🤖</div>
           )}
 
           <div style={{
-            maxWidth:'83%', padding:'7px 10px', fontSize:'11px',
+            maxWidth:'80%', padding:'10px 14px', fontSize:'12px',
             lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'break-word',
             ...(msg.role==='user'
-              ? {background:'rgba(79,70,229,0.45)',color:'#e0e7ff',borderRadius:'12px 12px 2px 12px',border:'0.5px solid rgba(99,102,241,0.35)'}
+              ? {background:'linear-gradient(135deg, rgba(168,85,247,0.25) 0%, rgba(192,38,211,0.2) 100%)',color:'#fae8ff',borderRadius:'16px 16px 4px 16px',border:'1px solid rgba(168,85,247,0.3)',boxShadow:'0 2px 8px rgba(168,85,247,0.15)'}
               : msg.role==='system'
-              ? {background:'rgba(245,158,11,0.08)',color:'#fcd34d',borderLeft:'2px solid #f59e0b',borderRadius:'0 8px 8px 0',padding:'6px 10px'}
-              : {background:'rgba(255,255,255,0.07)',color:'#cbd5e1',borderRadius:'12px 12px 12px 2px',border:'0.5px solid rgba(255,255,255,0.08)'}
+              ? {background:'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(251,191,36,0.08) 100%)',color:'#fcd34d',borderLeft:'3px solid #fbbf24',borderRadius:'0 12px 12px 0',padding:'10px 14px',border:'1px solid rgba(251,191,36,0.2)'}
+              : {background:'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(168,85,247,0.08) 100%)',color:'#e9d5ff',borderRadius:'16px 16px 16px 4px',border:'1px solid rgba(139,92,246,0.2)',boxShadow:'0 2px 8px rgba(139,92,246,0.1)'}
             ),
           }}>
             {msg.content}
           </div>
 
           {msg.role==='user' && (
-            <div style={{width:'22px',height:'22px',borderRadius:'50%',flexShrink:0,background:'rgba(79,70,229,0.5)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',color:'#fff'}}>👤</div>
+            <div style={{width:'24px',height:'24px',borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(139,92,246,0.3) 100%)',border:'1px solid rgba(168,85,247,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',color:'#fff',boxShadow:'0 0 8px rgba(168,85,247,0.2)'}}>👤</div>
           )}
         </div>
       ))}
 
       {isTyping && (
-        <div style={{display:'flex',gap:'6px',alignItems:'flex-end'}}>
-          <div style={{width:'22px',height:'22px',borderRadius:'50%',background:'rgba(99,102,241,0.25)',border:'1px solid rgba(99,102,241,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px'}}>🤖</div>
-          <div style={{background:'rgba(255,255,255,0.07)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:'12px 12px 12px 2px',padding:'8px 12px',display:'flex',gap:'4px',alignItems:'center'}}>
+        <div style={{display:'flex',gap:'8px',alignItems:'flex-end'}}>
+          <div style={{width:'24px',height:'24px',borderRadius:'50%',background:'linear-gradient(135deg, rgba(168,85,247,0.3) 0%, rgba(192,38,211,0.2) 100%)',border:'1px solid rgba(168,85,247,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',boxShadow:'0 0 8px rgba(168,85,247,0.2)'}}>🤖</div>
+          <div style={{background:'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(168,85,247,0.08) 100%)',border:'1px solid rgba(139,92,246,0.2)',borderRadius:'16px 16px 16px 4px',padding:'10px 14px',display:'flex',gap:'5px',alignItems:'center',boxShadow:'0 2px 8px rgba(139,92,246,0.1)'}}>
             {[0,1,2].map(i => (
-              <span key={i} style={{width:'5px',height:'5px',borderRadius:'50%',background:'#475569',display:'inline-block',animation:'omvBounce 1.2s infinite',animationDelay:`${i*0.15}s`}} />
+              <span key={i} style={{width:'6px',height:'6px',borderRadius:'50%',background:'linear-gradient(135deg, #a78bfa 0%, #c084fc 100%)',display:'inline-block',animation:'omvBounce 1.2s infinite',animationDelay:`${i*0.15}s`,boxShadow:'0 0 4px rgba(167,139,250,0.5)'}} />
             ))}
           </div>
         </div>
@@ -207,39 +239,39 @@ function AIAssistant({ address, prediction, zonasCriticas = [], noticias = [], o
       <div ref={chatEndRef} />
     </div>
 
-    {/* Input */}
-    <div style={{padding:'8px 10px',flexShrink:0,borderTop:'0.5px solid rgba(255,255,255,0.07)',background:'rgba(0,0,0,0.25)'}}>
-      <div style={{display:'flex',gap:'6px',alignItems:'center',background:'rgba(255,255,255,0.06)',border:'0.5px solid rgba(255,255,255,0.1)',borderRadius:'20px',padding:'4px 4px 4px 12px'}}>
+    {/* Input - con degradado y borde morado */}
+    <div style={{padding:'12px 14px',flexShrink:0,borderTop:'1px solid rgba(168,85,247,0.2)',background:'linear-gradient(180deg, rgba(15,15,42,0.6) 0%, rgba(88,28,135,0.3) 100%)',backdropFilter:'blur(12px)'}}>
+      <div style={{display:'flex',gap:'8px',alignItems:'center',background:'linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(88,28,135,0.2) 100%)',border:'1px solid rgba(168,85,247,0.25)',borderRadius:'24px',padding:'6px 6px 6px 16px',boxShadow:'0 0 16px rgba(168,85,247,0.1), inset 0 1px 0 rgba(255,255,255,0.05)'}}>
         <input
           type="text" value={input}
           onChange={e => setInput(e.target.value)}
           onKeyPress={e => e.key==='Enter' && handleSend()}
           placeholder="¿Dónde hay más accidentes...?"
-          style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e2e8f0',fontSize:'11px',fontFamily:'inherit'}}
+          style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#f3e8ff',fontSize:'12px',fontFamily:'inherit'}}
         />
         <button onClick={handleSend} disabled={!input.trim()}
-          style={{width:'26px',height:'26px',borderRadius:'50%',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s',background:input.trim()?'#4f46e5':'rgba(255,255,255,0.05)'}}>
-          <Send size={11} color={input.trim()?'#fff':'#475569'} />
+          style={{width:'32px',height:'32px',borderRadius:'50%',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s',background:input.trim()?'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)':'rgba(139,92,246,0.15)',boxShadow:input.trim()?'0 0 12px rgba(168,85,247,0.4)':'none'}}>
+          <Send size={14} color={input.trim()?'#fff':'#6b7280'} />
         </button>
       </div>
 
-      <div style={{display:'flex',justifyContent:'space-between',marginTop:'6px',padding:'0 2px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:'8px',padding:'0 4px'}}>
         {[{Icon:TrendingUp,label:'Predicción'},{Icon:AlertCircle,label:'Alertas'},{Icon:Route,label:'Rutas'},{Icon:HelpCircle,label:'Ayuda'}].map(({Icon,label}) => (
           <button key={label}
-            style={{background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:'3px',color:'#334155',fontSize:'10px',fontFamily:'inherit',padding:'2px 4px',borderRadius:'4px'}}
-            onMouseEnter={e => { e.currentTarget.style.color='#64748b'; }}
-            onMouseLeave={e => { e.currentTarget.style.color='#334155'; }}
+            style={{background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',color:'#7c3aed',fontSize:'10px',fontFamily:'inherit',padding:'4px 6px',borderRadius:'6px',transition:'all 0.15s'}}
+            onMouseEnter={e => { e.currentTarget.style.color='#a855f7'; e.currentTarget.style.background='rgba(168,85,247,0.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.color='#7c3aed'; e.currentTarget.style.background='transparent' }}
           >
-            <Icon size={10} />{label}
+            <Icon size={12} />{label}
           </button>
         ))}
       </div>
     </div>
 
     <style>{`
-      .omv-scroll::-webkit-scrollbar{width:3px}
+      .omv-scroll::-webkit-scrollbar{width:4px}
       .omv-scroll::-webkit-scrollbar-track{background:transparent}
-      .omv-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
+      .omv-scroll::-webkit-scrollbar-thumb{background:linear-gradient(180deg, rgba(168,85,247,0.3) 0%, rgba(192,38,211,0.3) 100%);border-radius:4px}
       @keyframes omvBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
     `}</style>
   </div>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Navbar from './Navbar';
 
 import imgVarianteCaldas from '../assets/variante_caldas.png';
 import imgSanJuan from '../assets/accidente_san_juan.png';
@@ -292,9 +291,9 @@ function NoticiasSection() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Index({ setVista }) {
+  // El Navbar se ha eliminado porque ya existe en App.jsx
   return (
     <div className="min-h-screen" style={{ fontFamily:'system-ui,sans-serif' }}>
-      <Navbar setVista={setVista} />
       <Hero setVista={setVista} />
       <HistoricoSection setVista={setVista} />
       <NoticiasSection />

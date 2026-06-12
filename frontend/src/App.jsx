@@ -10,16 +10,32 @@ import TrafficIRL from './components/TrafficIRL';
 import { getSafeRoute } from './services/safeRoutesApi';
 import Loader from "./components/Loader";
 import Index from "./components/Index";
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import Login from './components/Login';
 import { Toaster } from 'react-hot-toast';
 
-// --- IMPORTACIÓN DE IMÁGENES PNG LOCALES ---
 import imgVarianteCaldas from './assets/variante_caldas.png';
 import imgSanJuan from './assets/accidente_san_juan.png';
 import imgTunelOriente from './assets/tunel_oriente.png';
 
-// --- DATOS DE RESPALDO (MOCK) ---
+// ─── TOKENS (estilos) ─────────────────────────────────────────────────────────
+const T = {
+  bg:        '#060B18',
+  surface:   '#0D1425',
+  surfaceUp: '#111827',
+  border:    '#1E2D45',
+  borderSub: '#162032',
+  accent:    '#3B82F6',
+  accentDim: 'rgba(59,130,246,0.12)',
+  danger:    '#EF4444',
+  warn:      '#F59E0B',
+  safe:      '#22C55E',
+  text:      '#E2E8F0',
+  textSub:   '#64748B',
+  textMuted: '#334155',
+};
+
+// ─── MOCK DATA ────────────────────────────────────────────────────────────────
 const mockZonasCriticas = [
   { id: 1, sector_geografico: "Autopista Sur", latitud: 6.2442, longitud: -75.5812, total_accidentes: 45, total_lesionados: 32, total_fatalidades: 5, nivel_riesgo: "Alto", nivel_riesgo_predictive: 78, descripcion: "Colisiones múltiples en horas pico", modificado: "09/06/2026", tiempo: "2 hrs" },
   { id: 2, sector_geografico: "Calle 30", latitud: 6.2530, longitud: -75.5634, total_accidentes: 38, total_lesionados: 27, total_fatalidades: 3, nivel_riesgo: "Medio", nivel_riesgo_predictive: 65, descripcion: "Incidentes con motocicletas recurrentes", modificado: "09/06/2026", tiempo: "6 hrs" },
@@ -36,17 +52,147 @@ const RESPALDO_NOTICIAS = [
   { id: "fb-3", titulo: "Una persona murió tras choque de camioneta contra una caseta en el Túnel de Oriente", descripcion: "Un trágico accidente de tránsito se registró...", imagen: imgTunelOriente, tipo_alerta_display: "Crítico", url: "https://www.elcolombiano.com/antioquia/una-persona-murio-tras-choque-de-camioneta-contra-una-caseta-en-el-tunel-de-oriente-GI36584222" }
 ];
 
+// ─── SUB-COMPONENTS (respetando tu código original) ───────────────────────────
+function HeatmapLegend() {
+  const entries = [
+    { color: '#EF4444', label: 'Muy Alta' },
+    { color: '#F97316', label: 'Alta' },
+    { color: '#EAB308', label: 'Moderada' },
+    { color: '#22C55E', label: 'Libre' },
+  ];
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: '32px',
+      right: '12px',
+      zIndex: 400,
+      background: 'rgba(6, 11, 24, 0.88)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      border: `1px solid ${T.border}`,
+      borderRadius: '8px',
+      padding: '10px 14px',
+      minWidth: '140px',
+    }}>
+      <div style={{
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        letterSpacing: '0.08em',
+        color: T.textSub,
+        marginBottom: '8px',
+        textTransform: 'uppercase',
+      }}>Flujo de datos</div>
+      {entries.map(e => (
+        <div key={e.label} style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          marginBottom: '5px',
+        }}>
+          <div style={{
+            width: '10px', height: '10px', borderRadius: '50%',
+            background: e.color,
+            boxShadow: `0 0 6px ${e.color}80`,
+            flexShrink: 0,
+          }} />
+          <span style={{ fontSize: '11px', color: T.text }}>{e.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SystemStatusBar({ estadisticas, zonasCriticas }) {
+  const [tick, setTick] = useState(true);
+  const highRisk = zonasCriticas.filter(z => z.nivel_riesgo === 'Alto').length;
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => !t), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const now = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+  // Se mantiene el estilo original (aunque en tu código no había return, lo dejamos igual)
+  return null;
+}
+
+function StatCard({ label, value, color = T.text, accent }) {
+  return (
+    <div style={{
+      background: T.surface,
+      border: `1px solid ${T.border}`,
+      borderLeft: `3px solid ${accent || color}`,
+      borderRadius: '8px',
+      padding: '20px 24px',
+    }}>
+      <div style={{
+        fontSize: '28px',
+        fontWeight: 700,
+        color,
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '-0.02em',
+        lineHeight: 1,
+      }}>{value}</div>
+      <div style={{
+        fontSize: '11px',
+        color: T.textSub,
+        marginTop: '8px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        fontWeight: 500,
+      }}>{label}</div>
+    </div>
+  );
+}
+
+function Panel({ children, style }) {
+  return (
+    <div style={{
+      background: T.surface,
+      border: `1px solid ${T.border}`,
+      borderRadius: '10px',
+      overflow: 'hidden',
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+function PanelHeader({ title, subtitle, badge }) {
+  return (
+    <div style={{
+      padding: '14px 20px',
+      borderBottom: `1px solid ${T.borderSub}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}>
+      <div>
+        <span style={{ color: T.text, fontWeight: 600, fontSize: '13px' }}>{title}</span>
+        {subtitle && <span style={{ color: T.textSub, fontSize: '11px', marginLeft: '10px' }}>{subtitle}</span>}
+      </div>
+      {badge && (
+        <span style={{
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          letterSpacing: '0.06em',
+          color: T.accent,
+          background: T.accentDim,
+          border: `1px solid rgba(59,130,246,0.2)`,
+          borderRadius: '4px',
+          padding: '2px 8px',
+        }}>{badge}</span>
+      )}
+    </div>
+  );
+}
+
+// ─── APP PRINCIPAL (MODIFICADA) ──────────────────────────────────────────────
 function App() {
   const [appLoading, setAppLoading] = useState(true);
-  const [showIndex, setShowIndex] = useState(true);
-
-  // CONTROL DEL ASISTENTE FLOTANTE
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [zonasCriticas, setZonasCriticas] = useState([]);
   const [infracciones, setInfracciones] = useState([]);
 
+  // Cargar datos de movilidad
   useEffect(() => {
     const fetchDatosMovilidad = async () => {
       try {
@@ -54,8 +200,7 @@ function App() {
         const data = await response.json();
         setZonasCriticas(data.zonas || mockZonasCriticas);
         setInfracciones(data.multas || mockInfracciones);
-      } catch (error) {
-        console.warn("API no disponible, usando datos de respaldo.");
+      } catch {
         setZonasCriticas(mockZonasCriticas);
         setInfracciones(mockInfracciones);
       }
@@ -66,19 +211,19 @@ function App() {
   }, []);
 
   const [estadisticas, setEstadisticas] = useState({ total: 95, lesionados: 68, fatalidades: 8 });
-
   useEffect(() => {
     if (zonasCriticas.length > 0) {
-      const totalAcc = zonasCriticas.reduce((sum, z) => sum + (z.total_accidentes || 0), 0);
-      const totalLes = zonasCriticas.reduce((sum, z) => sum + (z.total_lesionados || 0), 0);
-      const totalFat = zonasCriticas.reduce((sum, z) => sum + (z.total_fatalidades || 0), 0);
-      setEstadisticas({ total: totalAcc, lesionados: totalLes, fatalidades: totalFat });
+      setEstadisticas({
+        total:       zonasCriticas.reduce((s, z) => s + (z.total_accidentes  || 0), 0),
+        lesionados:  zonasCriticas.reduce((s, z) => s + (z.total_lesionados  || 0), 0),
+        fatalidades: zonasCriticas.reduce((s, z) => s + (z.total_fatalidades || 0), 0),
+      });
     }
   }, [zonasCriticas]);
 
   const [selectedAddress, setSelectedAddress] = useState('');
   const [prediction, setPrediction] = useState(null);
-  const [vista, setVista] = useState('mapa');
+  const [vista, setVista] = useState('index'); // Pantalla inicial después del login
   const [searchCoords, setSearchCoords] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [routeResult, setRouteResult] = useState(null);
@@ -89,25 +234,29 @@ function App() {
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
+  // 👇 NUEVOS ESTADOS PARA CONTROLAR EL MAPA DE CALOR
+  const [horizon, setHorizon] = useState(2);          // horizonte de predicción (2h / 4h)
+  const [showHeatmap, setShowHeatmap] = useState(true); // mostrar/ocultar heatmap
+
+  // Cargar noticias externas
   useEffect(() => {
     const fetchLiveNews = async () => {
       try {
         const response = await fetch('https://newsapi.org/v2/top-headlines?country=co&category=general&apiKey=1312aa0f82e54b3ca5d885760c38036d');
         const data = await response.json();
-        if (data.articles && data.articles.length > 0) {
-          const noticiasFormateadas = data.articles.slice(0, 5).map((article, index) => ({
-            id: `api-${index}`,
-            titulo: article.title || "Reporte de Tránsito Local",
-            descripcion: article.description || "Revise las condiciones de la calzada e informes oficiales de movilidad en el enlace adjunto.",
-            imagen: article.urlToImage || RESPALDO_NOTICIAS[index % 3].imagen,
-            tipo_alerta_display: index % 2 === 0 ? "Crítico" : "Reporte",
-            url: article.url
-          }));
-          setNoticias(noticiasFormateadas);
+        if (data.articles?.length > 0) {
+          setNoticias(data.articles.slice(0, 5).map((a, i) => ({
+            id: `api-${i}`,
+            titulo: a.title || "Reporte de Tránsito Local",
+            descripcion: a.description || "Revise las condiciones de la calzada e informes oficiales.",
+            imagen: a.urlToImage || RESPALDO_NOTICIAS[i % 3].imagen,
+            tipo_alerta_display: i % 2 === 0 ? "Crítico" : "Reporte",
+            url: a.url,
+          })));
         } else {
           setNoticias(RESPALDO_NOTICIAS);
         }
-      } catch (error) {
+      } catch {
         setNoticias(RESPALDO_NOTICIAS);
       } finally {
         setLoadingNoticias(false);
@@ -116,12 +265,11 @@ function App() {
     fetchLiveNews();
   }, []);
 
+  // Carrusel automático de noticias
   useEffect(() => {
     if (isCarouselPaused || noticias.length === 0) return;
-    const interval = setInterval(() => {
-      setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
-    }, 3000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setCurrentNewsIndex(p => (p + 1) % noticias.length), 3000);
+    return () => clearInterval(id);
   }, [noticias, isCarouselPaused]);
 
   const handleSearchAddress = (addr, coords) => {
@@ -129,11 +277,10 @@ function App() {
     setSearchCoords(coords);
     setVista('mapa');
   };
-
+  const handlePrevNews = e => { e.stopPropagation(); setCurrentNewsIndex(p => (p === 0 ? noticias.length - 1 : p - 1)); };
+  const handleNextNews = e => { e.stopPropagation(); setCurrentNewsIndex(p => (p + 1) % noticias.length); };
   const handleCalculateRoute = async (origen, destino, modoLluvias) => {
-    setRouteLoading(true);
-    setRouteError(null);
-    setRouteResult(null);
+    setRouteLoading(true); setRouteError(null); setRouteResult(null);
     try {
       const result = await getSafeRoute(origen, destino, modoLluvias);
       if (result.error) setRouteError(result.error);
@@ -144,183 +291,142 @@ function App() {
       setRouteLoading(false);
     }
   };
+  const handleSetVista = (nuevaVista) => setVista(nuevaVista);
+  const handleLogout = () => logout();
 
-  const handlePrevNews = (e) => {
-    e.stopPropagation();
-    setCurrentNewsIndex((prev) => (prev === 0 ? noticias.length - 1 : prev - 1));
-  };
+  // ── GUARDS ──
+  if (!user) return <Login />;
+  if (authLoading || appLoading) return <Loader onFinish={() => setAppLoading(false)} />;
 
-  const handleNextNews = (e) => {
-    e.stopPropagation();
-    setCurrentNewsIndex((prev) => (prev + 1) % noticias.length);
-  };
-
-  const handleSetVistaDesdeIndex = (vista) => {
-    setShowIndex(false);
-    setVista(vista);
-  };
-
-  const handleSetVista = (vista) => {
-    if (vista === 'estadisticas') {
-      setShowIndex(true);
-    } else {
-      setShowIndex(false);
-      setVista(vista);
-    }
-  };
-
-  if (authLoading || appLoading) {
-    return <Loader onFinish={() => setAppLoading(false)} />;
-  }
-
-  if (!user) {
-    return (
-      <>
-        <Toaster position="top-right" />
-        <Login />
-      </>
-    );
-  }
-
-  if (showIndex) {
-    return (
-      <>
-        <Toaster position="top-right" />
-        <Index setVista={handleSetVistaDesdeIndex} />
-      </>
-    );
-  }
-
+  // ── RENDER ──
   return (
     <>
-      <Toaster position="top-right" />
-      <div style={{background: '#070a13'}} className="min-h-screen font-sans antialiased flex flex-col relative text-slate-200">
-        <Navbar setVista={handleSetVista} />
-
-        <main className="flex-1 w-full">
-          {vista === 'mapa' ? (
-  <div style={{ height:'calc(100vh - 52px)', position:'relative', overflow:'hidden' }}>
-
-    {/* MAPA full screen */}
-    <div style={{ position:'absolute', inset:0 }}>
-      <MapSection
-        onAddressSelect={(addr, pred) => { setSelectedAddress(addr); setPrediction(pred); }}
-        zonasCriticas={zonasCriticas}
-        estadisticas={estadisticas}
-        searchCoords={searchCoords}
-        searchAddress={searchAddress}
-        onClearSearch={() => setSearchCoords(null)}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: T.surfaceUp,
+            color: T.text,
+            border: `1px solid ${T.border}`,
+            fontSize: '13px',
+            borderRadius: '8px',
+          },
+        }}
       />
-    </div>
-
-    {/* PANEL AI — fijo izquierda, translúcido */}
-<div style={{
-  position:'absolute', top:'10px', left:'12px', bottom:'90px',
-  width:'350px', zIndex:400,
-  background:'rgba(6, 8, 18, 0.67)',
-  backdropFilter:'blur(20px)',
-  WebkitBackdropFilter:'blur(20px)',
-  border:'0.5px solid rgba(255, 255, 255, 0)',
-  borderRadius:'14px',
-  display:'flex', flexDirection:'column',
-  overflow:'hidden',
-  boxShadow:'0 8px 32px rgba(0, 0, 0, 0.39)',
-}}>
-      {/* Header del panel */}
       <div style={{
-        padding:'10px 14px',
-        borderBottom:'0.5px solid rgba(255,255,255,0.07)',
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        flexShrink:0,
+        background: T.bg,
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        color: T.text,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+        WebkitFontSmoothing: 'antialiased',
       }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-          <div style={{
-            width:'24px', height:'24px', borderRadius:'8px',
-            background:'rgba(99,102,241,0.2)',
-            border:'1px solid rgba(99,102,241,0.35)',
-            display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px',
-          }}>🤖</div>
-          <div>
-            <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:600 }}>Tu Asistente AI</div>
-            <div style={{ color:'#475569', fontSize:'10px' }}>Análisis en tiempo real</div>
-          </div>
-        </div>
-        <div style={{
-          width:'7px', height:'7px', borderRadius:'50%',
-          background:'#22c55e', boxShadow:'0 0 6px #22c55e',
-        }} />
-      </div>
-
-      {/* Chat */}
-      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-        <AIAssistant
-          address={selectedAddress}
-          prediction={prediction}
-          zonasCriticas={zonasCriticas}
-          noticias={noticias}
-          estadisticas={estadisticas}
-          onSearchAddress={handleSearchAddress}
-        />
-      </div>
-    </div>
-
-  </div>
-          ) : vista === 'rutas' ? (
-            <div className="max-w-2xl mx-auto space-y-6 my-6 p-4">
-              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-                <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
+        <Navbar setVista={handleSetVista} onLogout={handleLogout} />
+        <SystemStatusBar estadisticas={estadisticas} zonasCriticas={zonasCriticas} />
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {vista === 'index' && <Index setVista={handleSetVista} />}
+          {vista === 'mapa' && (
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <MapSection
+                  onAddressSelect={(addr, pred) => { setSelectedAddress(addr); setPrediction(pred); }}
+                  zonasCriticas={zonasCriticas}
+                  estadisticas={estadisticas}
+                  searchCoords={searchCoords}
+                  searchAddress={searchAddress}
+                  onClearSearch={() => setSearchCoords(null)}
+                  horizon={horizon}                 // ← nueva prop
+                  setHorizon={setHorizon}           // ← nueva prop
+                  showHeatmap={showHeatmap}         // ← nueva prop
+                  setShowHeatmap={setShowHeatmap}   // ← nueva prop
+                />
               </div>
+              <HeatmapLegend />
+              <div style={{
+                position: 'absolute',
+                top: '56px', left: '12px', bottom: '16px',
+                width: '340px',
+                zIndex: 400,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '10px',
+                overflow: 'hidden',
+                border: `1px solid ${T.border}`,
+                background: 'rgba(6, 11, 24, 0.85)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.6)',
+              }}>
+                {/* Aquí iba el header del asistente, pero tu código lo dejó vacío – lo conservo igual */}
+                <div style={{}}></div>
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <AIAssistant
+                    address={selectedAddress}
+                    prediction={prediction}
+                    zonasCriticas={zonasCriticas}
+                    noticias={noticias}
+                    estadisticas={estadisticas}
+                    onSearchAddress={handleSearchAddress}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {vista === 'rutas' && (
+            <div style={{ maxWidth: '680px', margin: '32px auto', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <Panel>
+                <PanelHeader title="Planificador de Rutas" subtitle="Análisis de seguridad vial" badge="BETA" />
+                <div style={{ padding: '20px' }}>
+                  <SafeRouteForm onCalculate={handleCalculateRoute} loading={routeLoading} />
+                </div>
+              </Panel>
               {routeError && (
-                <div className="bg-red-950/40 border border-red-900 rounded-xl p-4 text-red-400 text-sm">
+                <div style={{
+                  background: 'rgba(239,68,68,0.06)',
+                  border: `1px solid rgba(239,68,68,0.25)`,
+                  borderLeft: `3px solid ${T.danger}`,
+                  borderRadius: '8px',
+                  padding: '14px 18px',
+                  fontSize: '13px',
+                  color: '#FCA5A5',
+                }}>
                   {routeError}
                 </div>
               )}
               {routeResult && (
-                <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-                  <SafeRouteResult result={routeResult} onNewSearch={() => { setRouteResult(null); setRouteError(null); }} />
-                </div>
+                <Panel>
+                  <PanelHeader title="Resultado" subtitle="Ruta optimizada por seguridad" />
+                  <div style={{ padding: '20px' }}>
+                    <SafeRouteResult
+                      result={routeResult}
+                      onNewSearch={() => { setRouteResult(null); setRouteError(null); }}
+                    />
+                  </div>
+                </Panel>
               )}
             </div>
-          ) : vista === 'trafico' ? (
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 max-w-4xl mx-auto my-6">
-              <TrafficIRL />
-            </div>
-          ) : (
-            <div className="max-w-6xl mx-auto space-y-8 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
-                  <div className="text-3xl font-bold text-white">{estadisticas.total}</div>
-                  <div className="text-sm text-slate-400 mt-1">Total Incidentes</div>
+          )}
+          {vista === 'trafico' && (
+            <div style={{ maxWidth: '960px', margin: '32px auto', padding: '0 20px', width: '100%' }}>
+              <Panel>
+                <PanelHeader title="Tráfico en Tiempo Real" badge="LIVE" />
+                <div style={{ padding: '20px' }}>
+                  <TrafficIRL />
                 </div>
-                <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
-                  <div className="text-3xl font-bold text-white">{estadisticas.lesionados}</div>
-                  <div className="text-sm text-slate-400 mt-1">Personas Lesionadas</div>
-                </div>
-                <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
-                  <div className="text-3xl font-bold text-white">{estadisticas.fatalidades}</div>
-                  <div className="text-sm text-slate-400 mt-1">Víctimas Fatales</div>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-                <NewsFeed 
-                  noticias={noticias} 
-                  loading={loadingNoticias} 
-                  currentIndex={currentNewsIndex}
-                  onPrev={handlePrevNews}
-                  onNext={handleNextNews}
-                  onPause={() => setIsCarouselPaused(true)}
-                  onResume={() => setIsCarouselPaused(false)}
-                />
-              </div>
-
-              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-                <FotomultasTable infracciones={infracciones} />
-              </div>
+              </Panel>
             </div>
           )}
         </main>
       </div>
+      <style>{`
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1E2D45; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2D4060; }
+      `}</style>
     </>
   );
 }
