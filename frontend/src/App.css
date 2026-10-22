@@ -181,4 +181,13 @@
     right: 0;
     border-right-color: var(--border);
   }
+
+  /* Genera el efecto de desenfoque e integración para el Heatmap Predictivo */
+.predictive-blur-heatmap {
+  filter: blur(14px);
+  transform-origin: center;
+  transition: fill-opacity 0.5s ease, fill-color 0.5s ease;
 }
+}
+
+

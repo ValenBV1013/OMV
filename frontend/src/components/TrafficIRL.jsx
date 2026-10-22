@@ -30,9 +30,9 @@ export default function TrafficIRL() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-[calc(100vh-12rem)]">
+    <div className="h-screen w-screen fixed inset-0 bg-[#0a0a1a] flex flex-col lg:flex-row overflow-hidden">
       {/* Panel: scroll si el contenido es muy largo */}
-      <div className="lg:w-80 xl:w-96 lg:shrink-0 overflow-y-auto">
+      <div className="lg:w-80 xl:w-96 lg:shrink-0 overflow-y-auto border-r border-violet-900/30 bg-[#0f0f2a]/80 backdrop-blur-sm">
         <TrafficIRLPanel
           onCalculate={handleCalculate}
           loading={loading}
@@ -42,12 +42,14 @@ export default function TrafficIRL() {
           onSelectAlternative={setSelectedAlternative}
         />
       </div>
-      {/* Mapa: ocupa el resto */}
-      <div className="flex-1 min-h-[40vh] lg:min-h-0 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
-        <TrafficIRLMap
-          routeData={routeData}
-          selectedAlternative={selectedAlternative}
-        />
+      {/* Mapa: recuadro con bordes, más pequeño */}
+      <div className="flex-1 min-h-0 p-4 flex items-center justify-center">
+        <div className="h-[calc(90%-2rem)] w-[calc(100%-2rem)] bg-[#0f0f2a] rounded-2xl overflow-hidden border border-violet-800/50 shadow-xl">
+          <TrafficIRLMap
+            routeData={routeData}
+            selectedAlternative={selectedAlternative}
+          />
+        </div>
       </div>
     </div>
   );

@@ -11,24 +11,24 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// SVG icon for ORIGIN (green with S)
+// SVG icon for ORIGIN (cyan neón)
 const iconOrigen = L.divIcon({
   html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="44" viewBox="0 0 28 44">
-    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 30 14 30s14-19.5 14-30C28 6.27 21.73 0 14 0z" fill="#22c55e" stroke="white" stroke-width="1.5"/>
+    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 30 14 30s14-19.5 14-30C28 6.27 21.73 0 14 0z" fill="#22d3ee" stroke="white" stroke-width="1.5"/>
     <circle cx="14" cy="14" r="6" fill="white"/>
-    <text x="14" y="17" text-anchor="middle" font-size="9" font-weight="bold" fill="#22c55e">S</text>
+    <text x="14" y="17" text-anchor="middle" font-size="9" font-weight="bold" fill="#0891b2">S</text>
   </svg>`,
   className: '',
   iconSize: [28, 44],
   iconAnchor: [14, 44],
 });
 
-// SVG icon for DESTINATION (red with D)
+// SVG icon for DESTINATION (fuchsia neón)
 const iconDestino = L.divIcon({
   html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="44" viewBox="0 0 28 44">
-    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 30 14 30s14-19.5 14-30C28 6.27 21.73 0 14 0z" fill="#ef4444" stroke="white" stroke-width="1.5"/>
+    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 30 14 30s14-19.5 14-30C28 6.27 21.73 0 14 0z" fill="#e879f9" stroke="white" stroke-width="1.5"/>
     <circle cx="14" cy="14" r="6" fill="white"/>
-    <text x="14" y="17" text-anchor="middle" font-size="9" font-weight="bold" fill="#ef4444">D</text>
+    <text x="14" y="17" text-anchor="middle" font-size="9" font-weight="bold" fill="#c026d3">D</text>
   </svg>`,
   className: '',
   iconSize: [28, 44],
@@ -48,12 +48,12 @@ function FitBounds({ bounds }) {
   return null;
 }
 
-// Congestion color helper — español (coincide con backend traffic_engine.py)
+// Congestion color helper — estilo neón
 function congestionColor(level) {
   switch (level) {
-    case 'severo': return '#dc2626';
-    case 'alto': return '#ea580c';
-    case 'moderado': return '#eab308';
+    case 'severo': return '#f43f5e';
+    case 'alto': return '#f97316';
+    case 'moderado': return '#fbbf24';
     default: return '#6b7280';
   }
 }
@@ -144,7 +144,7 @@ export default function TrafficIRLMap({
       {mainPositions.length > 0 && (
         <Polyline
           positions={mainPositions}
-          pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9 }}
+          pathOptions={{ color: '#22d3ee', weight: 6, opacity: 0.9 }}
         >
           <Popup>
             <div className="text-xs space-y-1">
